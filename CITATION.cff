@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+title: "cyclo: automated de novo design of cyclic protein homo-oligomers"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  # TODO: replace with the full author list before the first tagged release.
+  - name: "LamarckLab"
+    email: "lmk704021302@gmail.com"
+repository-code: "https://github.com/LamarckLab/042_I53_Nanoparticle_Design"
+license: MIT
+version: 0.1.0
