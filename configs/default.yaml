@@ -1,0 +1,93 @@
+# =============================================================================
+# cyclo - default configuration
+#
+# Every subjective decision in the manual protocol appears here as a number.
+# Thresholds are deliberately conservative starting points, NOT validated values;
+# stage 01 and 04 are cheap to replay, so tune them against a real run rather than
+# trusting these defaults.
+# =============================================================================
+
+run:
+  name: c5_60aa_v1
+  outdir: runs/c5_60aa_v1
+  seed: 0
+
+# ------------------------------------------------------------------ design target
+target:
+  symmetry: C5                # C2..C12; the whole pipeline is parameterised by this
+  monomer_length: 60          # residues per chain (RFdiffusion is told n_sym x this)
+  n_backbones: 500            # total backbones to generate
+
+# ------------------------------------------------- 00  backbone generation
+generate:
+  tool: rfdiffusion
+  batch_size: 10              # designs per RFdiffusion invocation
+  num_steps: 50
+  potentials:
+    olig_contacts: {weight_intra: 1.0, weight_inter: 0.1}
+    guide_scale: 2.0
+    guide_decay: quadratic
+  extra_args: []              # passed through verbatim to run_inference.py
+
+# ------------------------------------------------- 01  backbone filtering
+# All metrics are always computed and stored. These rules only set the pass flag.
+backbone_filter:
+  rules:
+    - "n_clash == 0"                       # no backbone overlap, intra or inter chain
+    - "sym_rmsd <= 0.5"                    # chains are genuinely superimposable
+    - "sym_order_ok"                       # detected Cn matches the requested Cn
+    - "helix_frac >= 0.35"                 # loop-dominated backbones are undesignable
+    - "loop_max_len <= 12"                 # no long floppy segments
+    - "rg_ratio <= 1.30"                   # compact relative to 2.2 * N^0.38
+    - "iface_contacts_per_chain >= 20"     # subunits actually touch each other
+    - "contact_order <= 0.35"              # very high contact order folds poorly
+
+# ------------------------------------------------- 02  sequence design
+design:
+  tool: proteinmpnn
+  n_seq_per_backbone: 10
+  sampling_temp: 0.1
+  use_soluble_model: true
+  omit_aas: "CX"              # no free cysteines in a de novo oligomer
+  tie_chains: true            # MANDATORY for homo-oligomers; all chains share a sequence
+
+# ------------------------------------------------- 03  structure prediction
+fold:
+  tool: colabfold             # AlphaFold2 weights via localcolabfold
+  msa_mode: single_sequence   # de novo designs have no homologues; an MSA is noise
+  use_templates: false
+  num_models: 1
+  num_recycle: 3
+  model_type: alphafold2_ptm
+  predict: monomer            # single chain only, per protocol
+
+# ------------------------------------------------- 04  self-consistency
+validate:
+  rmsd_cutoff: 1.0            # CA RMSD, predicted monomer vs design backbone
+  plddt_cutoff: 80.0
+  also_record: [1.5, 2.0]     # extra cutoffs stored for later re-analysis
+  rules:
+    - "success_rate >= 0.3"   # a backbone passes if >=30% of its sequences fold back
+    - "best_rmsd <= 1.0"
+
+# ------------------------------------------------- execution
+compute:
+  gpus: [0]                   # override in a profile; never assume the whole machine
+  max_parallel: 1
+  cuda_device_order: PCI_BUS_ID   # required on multi-GPU boxes with mixed cards
+
+paths:
+  rfdiffusion: null           # e.g. /data/lmk/RFdiffusion
+  proteinmpnn: null           # e.g. /data/lmk/ProteinMPNN
+  colabfold: null             # e.g. path to colabfold_batch
+
+backend:
+  kind: conda                 # conda | docker | apptainer | local
+  envs:
+    rfdiffusion: lmk_RFdiffusion
+    proteinmpnn: lmk_ProteinMPNN
+    colabfold: lmk_ColabFold
+  images:
+    rfdiffusion: null
+    proteinmpnn: null
+    colabfold: null

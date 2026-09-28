@@ -1,0 +1,23 @@
+# Machine profile: amax lab server (Ubuntu 20.04, 8 GPUs, shared with other users).
+#
+# Overlay on top of default.yaml:
+#   cyclo run --config my_run.yaml --profile configs/profiles/amax.yaml
+#
+# Verify the three tool paths against the actual installation before the first run.
+
+compute:
+  gpus: [2, 3]              # the two RTX 3090s; the 3080 Tis are left for other users
+  max_parallel: 2
+  cuda_device_order: PCI_BUS_ID
+
+paths:
+  rfdiffusion: /data/lmk/RFdiffusion
+  proteinmpnn: /data/lmk/ProteinMPNN
+  colabfold: colabfold_batch
+
+backend:
+  kind: conda
+  envs:
+    rfdiffusion: lmk_RFdiffusion
+    proteinmpnn: lmk_ProteinMPNN
+    colabfold: lmk_ColabFold
