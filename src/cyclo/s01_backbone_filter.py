@@ -1,0 +1,69 @@
+"""Stage 01 - objective backbone filtering.
+
+This is the stage that replaces "eyeball the backbones and throw out the bad ones".
+It computes every metric for every backbone unconditionally, then applies the rules
+from the config to set a pass flag. Nothing is deleted, so raising or lowering a
+threshold costs one CPU-minute instead of a GPU-day.
+"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from .config import Config
+from .filters import FilterSet
+from .geometry import backbone_metrics
+from .manifest import RunState
+from .pdbio import read_pdb
+
+STAGE = "01_backbone_filter"
+
+
+def metrics_for(path: str | Path, expected_sym: int) -> dict:
+    return backbone_metrics(read_pdb(str(path)), expected_sym=expected_sym)
+
+
+def run(cfg: Config, state: RunState, force: bool = False) -> dict:
+    if state.is_done(STAGE) and not force:
+        print(f"[{STAGE}] already done, skipping")
+        return {}
+
+    df = state.backbones.load()
+    if df.empty:
+        raise RuntimeError("no backbones in the manifest; run stage 00 first")
+
+    rules = FilterSet("backbone", cfg.get("backbone_filter.rules", []) or [])
+    expected = cfg.sym_order
+
+    rows, all_metrics = [], []
+    for record in df.to_dict("records"):
+        bid, path = record["backbone_id"], record["backbone_path"]
+        try:
+            m = metrics_for(path, expected)
+        except Exception as exc:                            # a malformed PDB is a fail, not a crash
+            rows.append({"backbone_id": bid, "bb_pass": False,
+                         "bb_fail_reason": f"metric error: {exc}"})
+            continue
+
+        verdict = rules.apply(m)
+        all_metrics.append(m)
+        row = {"backbone_id": bid, "bb_pass": verdict.passed, "bb_fail_reason": verdict.reason}
+        row.update({k: v for k, v in m.items() if k != "ss_string"})
+        row["ss_string"] = m["ss_string"]
+        rows.append(row)
+
+    state.backbones.upsert(rows)
+
+    summary = rules.summary(all_metrics) if all_metrics else {"n_input": 0, "n_pass": 0,
+                                                              "rejected_by_rule": {}}
+    summary["n_metric_errors"] = sum(1 for r in rows if not r.get("bb_pass")
+                                     and str(r.get("bb_fail_reason", "")).startswith("metric error"))
+    out = state.stage_dir(STAGE) / "filter_summary.json"
+    out.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+    print(f"[{STAGE}] {summary['n_pass']}/{summary['n_input']} backbones pass")
+    for rule, n in sorted(summary["rejected_by_rule"].items(), key=lambda kv: -kv[1]):
+        if n:
+            print(f"          rejected by {rule!r}: {n}")
+    state.mark_done(STAGE)
+    return summary
