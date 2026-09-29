@@ -91,8 +91,9 @@ class Config:
         if self.get("fold.msa_mode") != "single_sequence":
             problems.append("fold.msa_mode is not single_sequence; de novo designs have no "
                             "homologues and an MSA yields misleading confidence")
-        if not self.get("compute.gpus"):
-            problems.append("compute.gpus is empty")
+        gpus = self.get("compute.gpus")
+        if gpus is not None and not isinstance(gpus, list):
+            problems.append("compute.gpus must be null or a list of device indices")
         return problems
 
 

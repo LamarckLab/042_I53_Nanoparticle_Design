@@ -58,8 +58,17 @@ def test_msa_mode_other_than_single_sequence_is_flagged():
     assert any("msa_mode" in p for p in problems)
 
 
-def test_empty_gpu_list_rejected():
-    assert any("gpus" in p for p in _cfg("compute.gpus=[]").validate())
+def test_null_gpus_is_allowed_and_leaves_the_card_choice_alone():
+    from cyclo.runner import Runner
+    assert _cfg("compute.gpus=null").validate() == []
+    assert "CUDA_VISIBLE_DEVICES" not in Runner(kind="local", gpus=[]).env_vars()
+
+
+def test_explicit_gpu_list_still_pins():
+    from cyclo.runner import Runner
+    env = Runner(kind="local", gpus=[2, 3]).env_vars()
+    assert env["CUDA_VISIBLE_DEVICES"] == "2,3"
+    assert env["CUDA_DEVICE_ORDER"] == "PCI_BUS_ID"
 
 
 def test_implausible_monomer_length_rejected():
@@ -85,3 +94,11 @@ def test_shipped_validate_rules_parse():
     sample = {"success_rate": 0.5, "best_rmsd": 0.8, "median_rmsd": 1.1,
               "n_seqs": 10, "n_seqs_folded": 10, "best_plddt": 90.0}
     FilterSet("validate", cfg.get("validate.rules")).check_syntax(sample)
+
+
+def test_compact_subunit_preset_parses():
+    from synthetic import cyclic_oligomer
+    cfg = load_config(profile="configs/presets/compact_subunit.yaml",
+                      overrides=parse_overrides(["target.symmetry=C5"]))
+    FilterSet("backbone", cfg.get("backbone_filter.rules")).check_syntax(
+        backbone_metrics(cyclic_oligomer(n_sym=5), expected_sym=5))

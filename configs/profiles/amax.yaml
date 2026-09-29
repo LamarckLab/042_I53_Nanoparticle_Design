@@ -6,7 +6,9 @@
 # Verify the three tool paths against the actual installation before the first run.
 
 compute:
-  gpus: [2, 3]              # the two RTX 3090s; the 3080 Tis are left for other users
+  # The eight cards on this box are normally idle and these jobs are small, so no
+  # pinning by default. Set an explicit list when a run must stay on chosen cards.
+  gpus: null
   max_parallel: 2
   cuda_device_order: PCI_BUS_ID
 

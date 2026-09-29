@@ -42,9 +42,12 @@ class Runner:
     def env_vars(self) -> dict:
         env = dict(os.environ)
         # PCI_BUS_ID first: without it CUDA reorders devices by capability and
-        # CUDA_VISIBLE_DEVICES selects a different card than the one intended.
+        # CUDA_VISIBLE_DEVICES would select a different card than the one intended.
         env["CUDA_DEVICE_ORDER"] = self.cuda_device_order
-        env["CUDA_VISIBLE_DEVICES"] = ",".join(str(g) for g in self.gpus)
+        if self.gpus:
+            env["CUDA_VISIBLE_DEVICES"] = ",".join(str(g) for g in self.gpus)
+        else:
+            env.pop("CUDA_VISIBLE_DEVICES", None)           # null gpus: leave card choice to the scheduler
         return env
 
     # -- command construction ----------------------------------------------
