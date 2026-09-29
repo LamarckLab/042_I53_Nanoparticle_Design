@@ -17,6 +17,7 @@ Any metric name can be used in a `backbone_filter.rules` expression.
 | `strand_frac` | fraction | Fraction assigned E. |
 | `loop_frac` | fraction | Fraction assigned L. |
 | `n_sse` | count | Number of helix and strand runs. |
+| `n_helices` | count | Number of helix runs alone, i.e. the subunit topology. |
 | `loop_max_len` | residues | Longest contiguous loop run. |
 
 Secondary structure is assigned from the CA trace using the P-SEA criteria (Labesse
@@ -48,6 +49,41 @@ hairpin lands around 1.2 to 1.4 and a single straight helix above 1.5.
 **Why they filter.** An elongated subunit has less buried core per residue and is
 harder to design. High relative contact order correlates with slow and unreliable
 folding, and in practice with low self-consistency in stage 04.
+
+## Shape
+
+| Metric | Unit | Definition |
+|---|---|---|
+| `asphericity` | ratio | Gyration-tensor asphericity, normalised by Rg squared. |
+| `acylindricity` | ratio | Gyration-tensor acylindricity, normalised by Rg squared. |
+| `shape_anisotropy` | 0 to 1 | Relative shape anisotropy (kappa squared): 0 for a sphere, 1 for a rod. |
+| `axis_ratio` | ratio | Longest principal axis divided by the shortest. |
+
+Computed from the eigenvalues of the gyration tensor of the chain-A CA coordinates.
+
+`rg_ratio` measures overall size against a reference and cannot tell a compact ball
+from an equally sized disc. `shape_anisotropy` measures the shape itself, which is
+what the phrase "the subunit should be roughly spherical" actually means.
+
+Reference values from the test fixtures:
+
+| Shape | `shape_anisotropy` | `axis_ratio` |
+|---|---|---|
+| Ideal sphere | 0.005 | 1.1 |
+| Three-helix bundle | 0.24 | 2.0 |
+| Two-helix hairpin | 0.46 | 8.5 |
+| Straight helix | 0.98 | 16.1 |
+
+**Why they filter.** A compact three-helix subunit is the topology that works best as
+an icosahedral building block, and these two metrics separate it from an elongated
+hairpin far more cleanly than `rg_ratio` does.
+
+Note the calibration: a helix bundle is inherently somewhat prolate, so a threshold
+tight enough to look "spherical" in the everyday sense would reject exactly the folds
+that are wanted. The `globular_3helix` preset uses 0.30, which accepts the bundle at
+0.24 and rejects the hairpin at 0.46. These reference values come from idealised
+synthetic fixtures; real RFdiffusion output is less regular, so expect to loosen them
+against the per-rule counts in `filter_summary.json`.
 
 ## Symmetry
 

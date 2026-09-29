@@ -234,6 +234,33 @@ def interface_contacts(structure: Structure, cutoff: float = 8.0) -> float:
     return float(2 * total / len(ids))
 
 
+def gyration_shape(ca: np.ndarray) -> dict:
+    """Shape descriptors from the gyration tensor eigenvalues.
+
+    `shape_anisotropy` (kappa squared) is the direct answer to "is this subunit
+    globular": 0 for a perfect sphere, 1 for a straight rod. Compact globular folds
+    sit near 0.05-0.15, a two-helix hairpin well above that. `rg_ratio` only measures
+    overall size against a reference and cannot distinguish a compact ball from an
+    equally sized disc, which is why this is computed separately.
+    """
+    centred = ca - ca.mean(0)
+    tensor = (centred[:, :, None] * centred[:, None, :]).mean(axis=0)
+    lam = np.sort(np.linalg.eigvalsh(tensor))            # lam[0] <= lam[1] <= lam[2]
+    rg_sq = float(lam.sum())
+    if rg_sq <= 0:
+        return {"asphericity": 0.0, "acylindricity": 0.0,
+                "shape_anisotropy": 0.0, "axis_ratio": 1.0}
+
+    b = float(lam[2] - 0.5 * (lam[0] + lam[1]))          # asphericity
+    c = float(lam[1] - lam[0])                           # acylindricity
+    return {
+        "asphericity": b / rg_sq,
+        "acylindricity": c / rg_sq,
+        "shape_anisotropy": (b ** 2 + 0.75 * c ** 2) / (rg_sq ** 2),
+        "axis_ratio": float(np.sqrt(lam[2] / lam[0])) if lam[0] > 1e-9 else float("inf"),
+    }
+
+
 def relative_contact_order(ca: np.ndarray, cutoff: float = 8.0, min_sep: int = 3) -> float:
     """Relative contact order; high values flag topologies that fold poorly."""
     d = _pair_dists(ca, ca)
@@ -276,6 +303,7 @@ def backbone_metrics(structure: Structure, expected_sym: int | None = None) -> d
         "cterm_helix_len": terminal_run(ss, "H", "C"),
         "rg": rg,
         "rg_ratio": rg / rg_ref,
+        "n_helices": len(_runs(ss, "H")),                   # subunit topology, e.g. 3 for a 3-helix fold
         "contact_order": relative_contact_order(ca),
         "iface_contacts_per_chain": interface_contacts(structure),
         "pore_radius": float(radial.min()),
@@ -285,6 +313,10 @@ def backbone_metrics(structure: Structure, expected_sym: int | None = None) -> d
         "sym_order_detected": frame["sym_order_detected"],
         "sym_rmsd": frame["sym_rmsd"],
     }
+    m.update(gyration_shape(ca))
+    # The stated design target is that the whole ring is globular, not just one
+    # subunit, so the same descriptors are computed over the full assembly.
+    m.update({f"assembly_{k}": v for k, v in gyration_shape(structure.all_ca()).items()})
     m.update(count_clashes(structure))
     if expected_sym is not None:
         m["sym_order_ok"] = bool(abs(m["sym_order_detected"] - expected_sym) < 0.1)

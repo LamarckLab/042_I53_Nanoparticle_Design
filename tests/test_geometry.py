@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from cyclo.geometry import (backbone_metrics, count_clashes, rmsd, secondary_structure,
-                            symmetry_frame, terminal_run)
-from synthetic import clashing_oligomer, cyclic_oligomer, extended_monomer
+from cyclo.geometry import (backbone_metrics, count_clashes, gyration_shape, rmsd,
+                            secondary_structure, symmetry_frame, terminal_run)
+from synthetic import (clashing_oligomer, cyclic_oligomer, extended_monomer,
+                       helical_hairpin, spherical_cloud)
 
 
 # ------------------------------------------------------------------ symmetry
@@ -111,5 +112,48 @@ def test_metric_set_is_complete():
         "contact_order", "iface_contacts_per_chain", "pore_radius", "max_radius",
         "height", "sym_angle_deg", "sym_order_detected", "sym_rmsd", "n_clash",
         "n_clash_intra", "n_clash_inter", "min_interchain_dist", "sym_order_ok",
+        "n_helices", "asphericity", "acylindricity", "shape_anisotropy", "axis_ratio",
+        "assembly_asphericity", "assembly_shape_anisotropy", "assembly_axis_ratio",
     }
     assert required <= set(m), f"missing: {sorted(required - set(m))}"
+
+
+# ------------------------------------------------------------------ shape
+def test_shape_anisotropy_ranks_sphere_bundle_hairpin_rod():
+    """kappa squared must order the four reference shapes monotonically."""
+    k = lambda ca: gyration_shape(ca)["shape_anisotropy"]        # noqa: E731
+    sphere = k(spherical_cloud().chains["A"].ca)
+    bundle = k(cyclic_oligomer(n_sym=5).chains["A"].ca)
+    hairpin = k(helical_hairpin())
+    rod = k(extended_monomer(60).chains["A"].ca)
+    assert sphere < bundle < hairpin < rod, (sphere, bundle, hairpin, rod)
+
+
+def test_ideal_sphere_is_near_zero_anisotropy():
+    assert gyration_shape(spherical_cloud().chains["A"].ca)["shape_anisotropy"] < 0.05
+
+
+def test_rod_is_near_one_anisotropy():
+    assert gyration_shape(extended_monomer(60).chains["A"].ca)["shape_anisotropy"] > 0.9
+
+
+def test_three_helix_bundle_is_compact_and_all_alpha():
+    m = backbone_metrics(cyclic_oligomer(n_sym=5), expected_sym=5)
+    assert m["n_helices"] == 3
+    assert m["shape_anisotropy"] <= 0.30
+    assert m["strand_frac"] <= 0.05
+
+
+def test_two_helix_hairpin_is_more_elongated_than_a_bundle():
+    from cyclo.pdbio import Chain, Structure
+    mono = helical_hairpin()
+    struct = Structure(chains={"A": Chain("A", np.arange(1, len(mono) + 1), {"CA": mono})})
+    m = backbone_metrics(struct)
+    assert m["shape_anisotropy"] > 0.30 or m["axis_ratio"] > 3.0
+
+
+def test_assembly_shape_is_measured_separately_from_the_subunit():
+    """The design target is a globular ring, which is not the same as a globular subunit."""
+    m = backbone_metrics(cyclic_oligomer(n_sym=5), expected_sym=5)
+    assert m["assembly_shape_anisotropy"] != m["shape_anisotropy"]
+    assert 0.0 <= m["assembly_shape_anisotropy"] <= 1.0

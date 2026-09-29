@@ -91,3 +91,12 @@ def extended_monomer(n: int = 60) -> Structure:
     """A single straight helix: compact enough locally, but far too extended overall."""
     coords = ideal_helix(n)
     return Structure(chains={"A": Chain("A", np.arange(1, n + 1), {"CA": coords})})
+
+
+def spherical_cloud(n: int = 200, radius: float = 12.0, seed: int = 0) -> Structure:
+    """Uniform points in a ball: the reference for a perfectly globular shape."""
+    rng = np.random.default_rng(seed)
+    pts = rng.normal(size=(n, 3))
+    pts /= np.linalg.norm(pts, axis=1, keepdims=True)
+    pts *= radius * rng.uniform(size=(n, 1)) ** (1.0 / 3.0)
+    return Structure(chains={"A": Chain("A", np.arange(1, n + 1), {"CA": pts})})
