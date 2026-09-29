@@ -28,7 +28,7 @@ is the application; cyclic oligomer design is the tool.
 
 ```
 00  generate    RFdiffusion, symmetric mode          ->  N backbones
-01  filter      24 geometric metrics, config rules   ->  backbones that survive
+01  filter      29 geometric metrics, config rules   ->  backbones that survive
 02  design      ProteinMPNN, tied positions          ->  M sequences per backbone
 03  fold        AlphaFold2 monomer, single-sequence  ->  predicted structures
 04  validate    CA RMSD vs design, success rate      ->  ranked backbones
@@ -147,7 +147,7 @@ either nothing or unrelated hits, and the resulting confidence is not meaningful
 ## Testing
 
 ```bash
-pytest                     # 73 checks
+pytest                     # 86 checks
 python tests/run_all.py    # same suite without pytest
 ```
 

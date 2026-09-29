@@ -23,7 +23,7 @@ Output: `00_backbones/batch*_*.pdb`, one row per backbone in `tables/backbones.c
 
 ## 01 - Backbone filtering
 
-Computes 24 metrics per backbone (see [metrics.md](metrics.md)) and evaluates the
+Computes 29 metrics per backbone (see [metrics.md](metrics.md)) and evaluates the
 `backbone_filter.rules` expressions against them. Sets `bb_pass` and records
 `bb_fail_reason` listing every rule that failed.
 
