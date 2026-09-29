@@ -188,16 +188,58 @@ def test_completed_stage_is_skipped_and_can_be_forced():
 
 
 # ------------------------------------------------------------------ command construction
+def _rfd_cfg(*extra):
+    return load_config(overrides=parse_overrides([
+        "target.symmetry=C5", "target.monomer_length=60", *extra]))
+
+
 def test_rfdiffusion_command_uses_total_contig_length():
-    cfg = load_config(overrides=parse_overrides([
-        "target.symmetry=C5", "target.monomer_length=60",
-        "paths.rfdiffusion=/opt/RFdiffusion"]))
-    argv = build_command(cfg, Path("/run/batch000"), 10, 7)
-    joined = " ".join(argv)
+    argv = build_command(_rfd_cfg(), Path("/run/batch000"), 10)
+    joined = " ".join(str(a) for a in argv)
     assert "contigmap.contigs=[300-300]" in joined            # 5 x 60, not 60
-    assert "inference.symmetry=C5" in joined
-    assert "inference.seed=7" in joined
     assert "--config-name symmetry" in joined
+
+
+def test_rfdiffusion_symmetry_flag_is_lowercase():
+    """RFdiffusion is invoked with c5, matching the hand-run command that works."""
+    argv = build_command(_rfd_cfg(), Path("/run/batch000"), 10)
+    assert "inference.symmetry=c5" in argv
+    assert "inference.symmetry=C5" not in argv
+
+
+def test_rfdiffusion_command_sets_hydra_run_dir():
+    argv = build_command(_rfd_cfg(), Path("/run/batch000"), 10, Path("/run/hydra"))
+    assert "hydra.run.dir=/run/hydra" in " ".join(str(a) for a in argv).replace("\\", "/")
+
+
+def test_rfdiffusion_command_omits_unverified_hydra_keys():
+    """An unknown hydra key aborts the run, so nothing speculative is emitted."""
+    joined = " ".join(str(a) for a in build_command(_rfd_cfg(), Path("/run/b"), 10, seed=7))
+    assert "diffuser.T" not in joined
+    assert "inference.seed" not in joined
+
+
+def test_rfdiffusion_seed_is_opt_in():
+    cfg = _rfd_cfg("generate.seed_key=inference.seed")
+    assert "inference.seed=7" in build_command(cfg, Path("/run/b"), 10, seed=7)
+
+
+def test_rfdiffusion_potential_weights_are_written_as_integers():
+    """weight_intra:1, not 1.0, matching the known-good invocation."""
+    joined = " ".join(str(a) for a in
+                      build_command(_rfd_cfg("generate.potentials.enabled=true"),
+                                    Path("/run/b"), 10))
+    assert "weight_intra:1,weight_inter:0.1" in joined
+    assert "potentials.guide_scale=2" in joined
+    assert "potentials.guide_scale=2.0" not in joined
+
+
+def test_rfdiffusion_potentials_can_be_disabled():
+    joined = " ".join(str(a) for a in
+                      build_command(_rfd_cfg("generate.potentials.enabled=false"),
+                                    Path("/run/b"), 10))
+    assert "guiding_potentials" not in joined
+    assert "contigmap.contigs=[300-300]" in joined
 
 
 def test_proteinmpnn_command_ties_chains():
@@ -253,3 +295,34 @@ def test_parse_fasta_skips_the_input_sequence_and_splits_tied_chains():
     assert entries[0]["n_chains_in_fasta"] == 2
     assert entries[0]["mpnn_score"] == 1.23
     assert entries[1]["mpnn_seq_recovery"] == 0.29
+
+
+def test_rfdiffusion_contact_params_are_omitted_unless_set():
+    """r_0 and d_0 exist on olig_contacts but stay at RFdiffusion defaults by default."""
+    joined = " ".join(str(a) for a in build_command(_rfd_cfg(), Path("/run/b"), 10))
+    assert "r_0:" not in joined and "d_0:" not in joined
+
+
+def test_rfdiffusion_contact_params_are_emitted_when_set():
+    cfg = _rfd_cfg("generate.potentials.enabled=true",
+                   "generate.potentials.r_0=6", "generate.potentials.d_0=2")
+    joined = " ".join(str(a) for a in build_command(cfg, Path("/run/b"), 10))
+    assert "weight_intra:1,weight_inter:0.1,r_0:6,d_0:2" in joined
+
+
+def test_rfdiffusion_never_emits_monomer_rog():
+    """monomer_ROG has no chain_lengths and would shrink the whole ring, not the subunits."""
+    joined = " ".join(str(a) for a in build_command(_rfd_cfg(), Path("/run/b"), 10))
+    assert "monomer_ROG" not in joined
+
+
+def test_default_command_matches_the_verified_baseline():
+    """The shipped default reproduces the hand-run command exactly, nothing added."""
+    argv = build_command(_rfd_cfg(), Path("/out/output"), 50, Path("/logs"))
+    joined = " ".join(str(a) for a in argv).replace("\\", "/")
+    for expected in ("--config-name symmetry", "inference.symmetry=c5",
+                     "contigmap.contigs=[300-300]", "inference.output_prefix=/out/output",
+                     "hydra.run.dir=/logs", "inference.num_designs=50"):
+        assert expected in joined, expected
+    for absent in ("potentials", "diffuser.T", "inference.seed", "monomer_ROG"):
+        assert absent not in joined, absent

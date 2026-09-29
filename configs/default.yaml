@@ -16,17 +16,32 @@ run:
 target:
   symmetry: C5                # C2..C12; the whole pipeline is parameterised by this
   monomer_length: 60          # residues per chain (RFdiffusion is told n_sym x this)
-  n_backbones: 500            # total backbones to generate
+  n_backbones: 50             # total backbones to generate
 
 # ------------------------------------------------- 00  backbone generation
 generate:
   tool: rfdiffusion
   batch_size: 10              # designs per RFdiffusion invocation
-  num_steps: 50
+  hydra_run_dir: null         # default: <outdir>/00_backbones/hydra
   potentials:
-    olig_contacts: {weight_intra: 1.0, weight_inter: 0.1}
-    guide_scale: 2.0
+    # Off by default, matching the verified baseline invocation. Turning this on adds
+    # the oligomer-contact guiding potentials, which are worth testing but change the
+    # command away from the one known to work.
+    enabled: false
+    # olig_contacts is chain-aware (it takes chain_lengths), so weight_intra is the
+    # correct knob for "make each subunit more compact".
+    #
+    # Do NOT reach for monomer_ROG here. Its compute() reads xyz[:, 1] over all L
+    # residues and it has no chain_lengths argument, so on a symmetric oligomer it
+    # shrinks the whole ring instead of the individual subunits.
+    olig_contacts: {weight_intra: 1, weight_inter: 0.1}
+    r_0: null                 # contact distance scale; RFdiffusion default is 8
+    d_0: null                 # contact offset; RFdiffusion default is 2
+    guide_scale: 2
     guide_decay: quadratic
+  # Hydra aborts on a key its config does not define, so the seed flag is opt-in.
+  # Set to the key your RFdiffusion build accepts (e.g. inference.seed) once verified.
+  seed_key: null
   extra_args: []              # passed through verbatim to run_inference.py
 
 # ------------------------------------------------- 01  backbone filtering
@@ -39,8 +54,11 @@ backbone_filter:
     - "helix_frac >= 0.35"                 # loop-dominated backbones are undesignable
     - "loop_max_len <= 12"                 # no long floppy segments
     - "rg_ratio <= 1.30"                   # compact relative to 2.2 * N^0.38
+    - "shape_anisotropy <= 0.50"           # reject rod-like subunits (0 sphere, 1 rod)
     - "iface_contacts_per_chain >= 20"     # subunits actually touch each other
     - "contact_order <= 0.35"              # very high contact order folds poorly
+  # To select only the more compact, helix-rich subunits, overlay
+  # configs/presets/compact_subunit.yaml (calibrated to pass about a third).
 
 # ------------------------------------------------- 02  sequence design
 design:
@@ -72,7 +90,9 @@ validate:
 
 # ------------------------------------------------- execution
 compute:
-  gpus: [0]                   # override in a profile; never assume the whole machine
+  # null leaves card selection alone (no CUDA_VISIBLE_DEVICES), which is right when
+  # the machine is idle. Set an explicit list to confine the run to those cards.
+  gpus: null
   max_parallel: 1
   cuda_device_order: PCI_BUS_ID   # required on multi-GPU boxes with mixed cards
 
