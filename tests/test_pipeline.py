@@ -326,3 +326,69 @@ def test_default_command_matches_the_verified_baseline():
         assert expected in joined, expected
     for absent in ("potentials", "diffuser.T", "inference.seed", "monomer_ROG"):
         assert absent not in joined, absent
+
+
+# ------------------------------------------------------------------ stage 03 wiring
+def _fold_cfg(*extra):
+    return load_config(profile="configs/profiles/amax.yaml",
+                       overrides=parse_overrides(list(extra)))
+
+
+def test_colabfold_command_passes_the_weight_directory():
+    """Without --data colabfold_batch looks elsewhere and re-downloads the parameters."""
+    argv = fold_command(_fold_cfg(), Path("/in.fasta"), Path("/out"))
+    assert "--data" in argv
+    assert argv[argv.index("--data") + 1] == "/data/lmk/colabfold_parameters"
+
+
+def test_colabfold_positionals_come_last():
+    """Matches the verified invocation: flags first, then input, then output."""
+    argv = [str(a).replace("\\", "/") for a in
+            fold_command(_fold_cfg(), Path("/in.fasta"), Path("/out"))]
+    assert argv[-2:] == ["/in.fasta", "/out"]
+    assert argv[0].endswith("colabfold_batch")
+
+
+def test_colabfold_omits_unverified_flags_by_default():
+    argv = fold_command(_fold_cfg(), Path("/in.fasta"), Path("/out"))
+    assert "--model-type" not in argv
+    assert "--random-seed" not in argv
+    assert "--templates" not in argv
+
+
+def test_colabfold_optional_flags_are_emitted_when_set():
+    argv = fold_command(_fold_cfg("fold.model_type=alphafold2_ptm", "fold.random_seed=0"),
+                        Path("/in.fasta"), Path("/out"))
+    assert "--model-type" in argv and "--random-seed" in argv
+
+
+def test_pixi_managed_tool_is_not_wrapped_in_conda_run():
+    """LocalColabFold registers no conda env; it is reached through PATH instead."""
+    from cyclo.runner import runner_from_config
+    r = runner_from_config(_fold_cfg(), Path("/tmp"))
+    assert r.wrap("colabfold", ["colabfold_batch", "x"]) == ["colabfold_batch", "x"]
+    assert r.wrap("proteinmpnn", ["python", "x"])[:3] == ["conda", "run", "-n"]
+
+
+def test_tool_env_prepends_rather_than_replaces_path():
+    from cyclo.runner import runner_from_config
+    r = runner_from_config(_fold_cfg(), Path("/tmp"))
+    env = r.env_vars("colabfold")
+    assert env["PATH"].startswith("/data/lmk/localcolabfold/.pixi/envs/default/bin")
+    assert len(env["PATH"]) > len("/data/lmk/localcolabfold/.pixi/envs/default/bin")
+    assert env["LD_LIBRARY_PATH"].startswith("/data/lmk/localcolabfold/.pixi/envs/default/lib")
+
+
+def test_tool_env_is_scoped_to_its_tool():
+    from cyclo.runner import runner_from_config
+    r = runner_from_config(_fold_cfg(), Path("/tmp"))
+    assert "/localcolabfold/" not in r.env_vars("rfdiffusion").get("PATH", "")
+
+
+def test_tool_with_neither_conda_env_nor_tool_env_is_rejected():
+    from cyclo.runner import Runner
+    try:
+        Runner(kind="conda", envs={}, tool_env={}).wrap("colabfold", ["x"])
+        raise AssertionError("expected a KeyError")
+    except KeyError:
+        pass

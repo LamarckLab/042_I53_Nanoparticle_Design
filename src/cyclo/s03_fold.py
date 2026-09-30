@@ -25,18 +25,34 @@ def write_fasta(rows: list[dict], path: Path) -> Path:
 
 
 def build_command(cfg: Config, fasta: Path, outdir: Path) -> list[str]:
+    """Mirror the verified colabfold_batch invocation: --data, flags, input, output.
+
+    `--data` points at the weight directory and is not optional: without it
+    colabfold_batch looks in its own default location and will try to download the
+    parameters again.
+    """
     exe = cfg.get("paths.colabfold") or "colabfold_batch"
-    argv = [
-        str(exe), str(fasta), str(outdir),
+    argv = [str(exe)]
+
+    params = cfg.get("paths.colabfold_params")
+    if params:
+        argv += ["--data", str(params)]
+
+    argv += [
         "--msa-mode", str(cfg.get("fold.msa_mode", "single_sequence")),
         "--num-recycle", str(cfg.get("fold.num_recycle", 3)),
         "--num-models", str(cfg.get("fold.num_models", 1)),
-        "--model-type", str(cfg.get("fold.model_type", "alphafold2_ptm")),
-        "--random-seed", str(int(cfg.get("run.seed", 0))),
     ]
+    # Opt-in only: the verified invocation sets neither, and colabfold_batch already
+    # defaults to alphafold2_ptm for monomers.
+    if cfg.get("fold.model_type"):
+        argv += ["--model-type", str(cfg.get("fold.model_type"))]
+    if cfg.get("fold.random_seed") is not None:
+        argv += ["--random-seed", str(int(cfg.get("fold.random_seed")))]
     if cfg.get("fold.use_templates", False):
         argv.append("--templates")
-    return argv
+
+    return argv + [str(fasta), str(outdir)]                 # positionals last, as verified
 
 
 def collect(outdir: Path, sequence_id: str) -> dict:

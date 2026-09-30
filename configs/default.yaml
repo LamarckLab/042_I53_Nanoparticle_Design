@@ -76,7 +76,8 @@ fold:
   use_templates: false
   num_models: 1
   num_recycle: 3
-  model_type: alphafold2_ptm
+  model_type: null            # null uses the colabfold_batch default (alphafold2_ptm)
+  random_seed: null           # opt-in; the verified invocation does not set it
   predict: monomer            # single chain only, per protocol
 
 # ------------------------------------------------- 04  self-consistency
@@ -99,14 +100,18 @@ compute:
 paths:
   rfdiffusion: null           # e.g. /data/lmk/RFdiffusion
   proteinmpnn: null           # e.g. /data/lmk/ProteinMPNN
-  colabfold: null             # e.g. path to colabfold_batch
+  colabfold: null             # e.g. path to the colabfold_batch executable
+  colabfold_params: null      # REQUIRED for stage 03: the --data weight directory
 
 backend:
   kind: conda                 # conda | docker | apptainer | local
   envs:
     rfdiffusion: lmk_RFdiffusion
     proteinmpnn: lmk_ProteinMPNN
-    colabfold: lmk_ColabFold
+    colabfold: null           # pixi-managed installs register no conda env
+  # Tools with no conda env are activated here instead. PATH, LD_LIBRARY_PATH and
+  # PYTHONPATH are prepended to the existing value; anything else is set outright.
+  tool_env: {}
   images:
     rfdiffusion: null
     proteinmpnn: null
