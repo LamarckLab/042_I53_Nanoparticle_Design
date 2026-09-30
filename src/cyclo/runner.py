@@ -27,11 +27,15 @@ class CommandResult:
         return self.returncode == 0
 
 
+PREPEND_VARS = ("PATH", "LD_LIBRARY_PATH", "PYTHONPATH")   # colon-joined, prepended not replaced
+
+
 @dataclass
 class Runner:
     kind: str = "local"                      # local | conda | docker | apptainer
     envs: dict = field(default_factory=dict)
     images: dict = field(default_factory=dict)
+    tool_env: dict = field(default_factory=dict)
     gpus: list = field(default_factory=lambda: [0])
     cuda_device_order: str = "PCI_BUS_ID"
     log_path: Path | None = None
@@ -39,7 +43,7 @@ class Runner:
     binds: list = field(default_factory=list)
 
     # -- environment --------------------------------------------------------
-    def env_vars(self) -> dict:
+    def env_vars(self, tool: str | None = None) -> dict:
         env = dict(os.environ)
         # PCI_BUS_ID first: without it CUDA reorders devices by capability and
         # CUDA_VISIBLE_DEVICES would select a different card than the one intended.
@@ -48,7 +52,18 @@ class Runner:
             env["CUDA_VISIBLE_DEVICES"] = ",".join(str(g) for g in self.gpus)
         else:
             env.pop("CUDA_VISIBLE_DEVICES", None)           # null gpus: leave card choice to the scheduler
+
+        # Tools outside conda (pixi-managed localcolabfold, for one) are activated by
+        # prepending to PATH and LD_LIBRARY_PATH rather than by an env name.
+        for name, value in (self.tool_env.get(tool) or {}).items():
+            if name in PREPEND_VARS and env.get(name):
+                env[name] = f"{value}{os.pathsep}{env[name]}"
+            else:
+                env[name] = str(value)
         return env
+
+    def is_conda_managed(self, tool: str) -> bool:
+        return bool(self.envs.get(tool))
 
     # -- command construction ----------------------------------------------
     def wrap(self, tool: str, argv: list[str], workdir: Path | None = None) -> list[str]:
@@ -57,7 +72,11 @@ class Runner:
         if self.kind == "conda":
             env = self.envs.get(tool)
             if not env:
-                raise KeyError(f"no conda env configured for tool {tool!r}")
+                # No conda env: the tool is activated through tool_env instead, which
+                # is how a pixi-managed install is reached. Require one or the other.
+                if not (self.tool_env.get(tool) or {}):
+                    raise KeyError(f"tool {tool!r} has neither a conda env nor a tool_env entry")
+                return list(argv)
             return ["conda", "run", "-n", env, "--no-capture-output", *argv]
         if self.kind in ("docker", "apptainer"):
             image = self.images.get(tool)
@@ -86,7 +105,7 @@ class Runner:
 
         start = time.time()
         proc = subprocess.run(
-            full, cwd=str(workdir) if workdir else None, env=self.env_vars(),
+            full, cwd=str(workdir) if workdir else None, env=self.env_vars(tool),
             capture_output=True, text=True,
         )
         result = CommandResult(full, proc.returncode, proc.stdout, proc.stderr, time.time() - start)
@@ -117,6 +136,7 @@ def runner_from_config(cfg, outdir: Path, dry_run: bool = False) -> Runner:
         kind=str(cfg.get("backend.kind", "local")),
         envs=cfg.get("backend.envs", {}) or {},
         images=cfg.get("backend.images", {}) or {},
+        tool_env=cfg.get("backend.tool_env", {}) or {},
         gpus=cfg.get("compute.gpus", [0]) or [0],
         cuda_device_order=str(cfg.get("compute.cuda_device_order", "PCI_BUS_ID")),
         log_path=Path(outdir) / "logs" / "commands.jsonl",

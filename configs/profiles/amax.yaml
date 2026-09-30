@@ -16,10 +16,15 @@ paths:
   rfdiffusion: /data/lmk/RFdiffusion
   proteinmpnn: /data/lmk/ProteinMPNN
   colabfold: colabfold_batch
+  colabfold_params: /data/lmk/colabfold_parameters
 
 backend:
   kind: conda
   envs:
     rfdiffusion: lmk_RFdiffusion
     proteinmpnn: lmk_ProteinMPNN
-    colabfold: lmk_ColabFold
+    colabfold: null           # LocalColabFold is pixi-managed, not a conda env
+  tool_env:
+    colabfold:
+      PATH: /data/lmk/localcolabfold/.pixi/envs/default/bin
+      LD_LIBRARY_PATH: /data/lmk/localcolabfold/.pixi/envs/default/lib
