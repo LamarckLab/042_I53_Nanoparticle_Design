@@ -10,7 +10,9 @@
 run:
   name: c5_60aa_v1
   outdir: runs/c5_60aa_v1
-  seed: 0
+  # Must be non-zero: ProteinMPNN treats --seed 0 as a request for a RANDOM seed,
+  # so leaving it at 0 silently makes sequence design irreproducible.
+  seed: 1
 
 # ------------------------------------------------------------------ design target
 target:

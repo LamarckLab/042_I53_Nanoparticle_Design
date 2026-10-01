@@ -30,6 +30,17 @@ All notable changes to this project are documented here. The format follows
   defaults pass 71% of them and `configs/presets/compact_subunit.yaml` passes 33%.
 
 ### Changed
+- Run directories hold only results. A 50-backbone run went from 467 MB to 42 MB by
+  turning off RFdiffusion trajectory output, dropping .trb metadata and discarding
+  the colabfold products nothing reads; both cleanups are config switches.
+- Backbone filenames are continuous across batches: design_0 .. design_N-1 instead
+  of a restart inside every batch.
+- `run.seed` defaults to 1. ProteinMPNN reads `--seed 0` as a request for a random
+  seed, so the previous default of 0 silently made sequence design irreproducible.
+
+### Added (stage 05)
+- `05_delivery/` collects every design that passed stage 04 as a pentamer PDB, a
+  FASTA of its best sequence, and a row in `delivery.csv`.
 - Backbone filtering is off by default. Stage 01 measures every backbone and passes
   all of them to sequence design; rules are opt-in. Metrics are recorded either way,
   so a filter can be applied afterwards by replaying stage 01 alone.

@@ -102,3 +102,9 @@ def test_compact_subunit_preset_parses():
                       overrides=parse_overrides(["target.symmetry=C5"]))
     FilterSet("backbone", cfg.get("backbone_filter.rules")).check_syntax(
         backbone_metrics(cyclic_oligomer(n_sym=5), expected_sym=5))
+
+
+def test_zero_seed_is_rejected():
+    """ProteinMPNN reads --seed 0 as 'pick a random one', which breaks reproducibility."""
+    assert any("run.seed" in p for p in _cfg("run.seed=0").validate())
+    assert _cfg("run.seed=1").validate() == []

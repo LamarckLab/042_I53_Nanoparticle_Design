@@ -85,6 +85,10 @@ class Config:
             problems.append(f"target.monomer_length={self.monomer_length} is implausibly short")
         if int(self.get("design.n_seq_per_backbone", 0)) < 1:
             problems.append("design.n_seq_per_backbone must be >= 1")
+        if int(self.get("run.seed", 1)) == 0:
+            problems.append("run.seed=0 makes ProteinMPNN pick a random seed, so the "
+                            "same backbones give different sequences on every run; "
+                            "use any non-zero value")
         if not self.get("design.tie_chains", True):
             problems.append("design.tie_chains=false will give each chain a different "
                             "sequence, which cannot form a homo-oligomer")
