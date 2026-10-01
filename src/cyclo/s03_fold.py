@@ -95,6 +95,20 @@ def run(cfg: Config, state: RunState, runner: Runner, force: bool = False) -> li
 
     rows = [{"sequence_id": r["sequence_id"], **collect(work, r["sequence_id"])} for r in records]
     state.sequences.upsert(rows)
+
+    # colabfold_batch writes eight files per sequence; two are read downstream. The
+    # rest are plots, the single-sequence a3m and PAE dumps, so they are removed once
+    # the results have been collected.
+    if not cfg.get("fold.keep_all_outputs", False):
+        keep = {Path(r["pred_path"]).name for r in rows if r.get("pred_path")}
+        keep |= {p.name for p in work.glob("*_scores_rank_001_*.json")}
+        keep |= {"designs.fasta", "config.json", "cite.bibtex"}
+        removed = 0
+        for path in work.iterdir():
+            if path.is_file() and path.name not in keep:
+                path.unlink()
+                removed += 1
+        print(f"[{STAGE}] removed {removed} unused colabfold products")
     if not runner.dry_run:                                   # a dry run must leave no trace
         state.mark_done(STAGE)
     n_ok = sum(1 for r in rows if r.get("fold_ok"))

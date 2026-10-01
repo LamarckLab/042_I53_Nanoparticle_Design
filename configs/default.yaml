@@ -22,7 +22,16 @@ target:
 generate:
   tool: rfdiffusion
   batch_size: 10              # designs per RFdiffusion invocation
-  hydra_run_dir: null         # default: <outdir>/00_backbones/hydra
+  hydra_run_dir: null         # default: <outdir>/logs/hydra
+  output_prefix: design       # files come out as design_0.pdb .. design_N-1.pdb
+  # Normally left null: the stage counts what is on disk and tells RFdiffusion where
+  # to continue, so batches number consecutively and the files end up zero-padded
+  # (design_00.pdb .. design_49.pdb). Set an integer only to pin the start index.
+  design_startnum: null
+  # Trajectory files dominate the output and nothing reads them: 50 C5 backbones
+  # wrote 337 MB of them against 4 MB of structures.
+  write_trajectory: false
+  keep_trb: false             # RFdiffusion metadata, unused downstream
   potentials:
     # On by default, from 50 backbones generated with them against 10 generated
     # without, all C5 at 60 residues. Medians, with -> without:
@@ -85,6 +94,9 @@ fold:
   model_type: null            # null uses the colabfold_batch default (alphafold2_ptm)
   random_seed: null           # opt-in; the verified invocation does not set it
   predict: monomer            # single chain only, per protocol
+  # colabfold_batch writes eight files per sequence and two are read downstream;
+  # true keeps the plots, a3m and PAE dumps as well.
+  keep_all_outputs: false
 
 # ------------------------------------------------- 04  self-consistency
 validate:

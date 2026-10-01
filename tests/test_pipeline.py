@@ -445,3 +445,121 @@ def test_metrics_are_still_recorded_when_nothing_is_filtered():
             assert df[column].notna().all(), column          # measured anyway
     finally:
         h.close()
+
+
+# ------------------------------------------------------------------ output hygiene
+def test_rfdiffusion_command_disables_trajectory_output():
+    """Trajectory files were 98 percent of stage 00 output and nothing reads them."""
+    argv = build_command(_rfd_cfg(), Path("/run/b"), 10)
+    assert "inference.write_trajectory=False" in argv
+
+
+def test_trajectory_output_can_be_re_enabled():
+    cfg = _rfd_cfg("generate.write_trajectory=true")
+    assert "inference.write_trajectory=False" not in build_command(cfg, Path("/run/b"), 10)
+
+
+def test_proteinmpnn_intermediates_are_written_outside_the_results_dir():
+    cfg = load_config(overrides=parse_overrides(["paths.proteinmpnn=/opt/ProteinMPNN"]))
+    cmds = build_commands(cfg, Path("/in"), Path("/work"), Path("/logs"))
+    joined = " ".join(" ".join(str(a) for a in argv) for _, argv in cmds).replace("\\", "/")
+    assert "/logs/parsed_chains.jsonl" in joined
+    assert "/logs/tied_positions.jsonl" in joined
+    assert "/work/parsed_chains.jsonl" not in joined
+
+
+# ------------------------------------------------------------------ stage 05
+def _run_through_delivery():
+    from cyclo import s05_delivery
+    h, _ = _run_through_stage04()
+    s05_delivery.run(h.cfg, h.state)
+    return h, Path(h.cfg.outdir) / "05_delivery"
+
+
+def test_delivery_writes_a_pdb_and_a_fasta_per_passing_design():
+    h, out = _run_through_delivery()
+    try:
+        bb = h.state.backbones.load()
+        n = int(bb["final_pass"].fillna(False).astype(bool).sum())
+        assert n > 0
+        assert len(list(out.glob("*.pdb"))) == n
+        assert len(list(out.glob("*.fasta"))) == n
+        assert (out / "delivery.csv").exists()
+    finally:
+        h.close()
+
+
+def test_delivery_excludes_designs_that_failed_validation():
+    h, out = _run_through_delivery()
+    try:
+        bb = h.state.backbones.load()
+        failed = bb[~bb["final_pass"].fillna(False).astype(bool)]["backbone_id"]
+        for bid in failed:
+            assert not (out / f"{bid}.pdb").exists()
+    finally:
+        h.close()
+
+
+def test_delivery_fasta_carries_the_best_sequence():
+    """The delivered sequence must be the one that folded back closest."""
+    h, out = _run_through_delivery()
+    try:
+        seqs = h.state.sequences.load()
+        import pandas as pd
+        table = pd.read_csv(out / "delivery.csv")
+        for row in table.to_dict("records"):
+            group = seqs[seqs.backbone_id == row["backbone_id"]]
+            assert abs(row["best_rmsd"] - group["sc_rmsd"].min()) < 1e-9
+            text = (out / f"{row['backbone_id']}.fasta").read_text()
+            assert row["sequence"] in text
+            assert text.startswith(">")
+    finally:
+        h.close()
+
+
+def test_delivery_is_sorted_best_first():
+    h, out = _run_through_delivery()
+    try:
+        import pandas as pd
+        table = pd.read_csv(out / "delivery.csv")
+        assert list(table["success_rate"]) == sorted(table["success_rate"], reverse=True)
+    finally:
+        h.close()
+
+
+def test_delivery_rerun_clears_stale_hits():
+    from cyclo import s05_delivery
+    h, out = _run_through_delivery()
+    try:
+        (out / "zz_stale.pdb").write_text("junk", encoding="utf-8")
+        s05_delivery.run(h.cfg, h.state, force=True)
+        assert not (out / "zz_stale.pdb").exists()
+    finally:
+        h.close()
+
+
+def test_delivery_requires_a_stage_04_verdict():
+    h = Harness()
+    h.seed_backbones()
+    try:
+        from cyclo import s05_delivery
+        s01_backbone_filter.run(h.cfg, h.state)
+        try:
+            s05_delivery.run(h.cfg, h.state)
+            raise AssertionError("expected a RuntimeError")
+        except RuntimeError:
+            pass
+    finally:
+        h.close()
+
+
+def test_rfdiffusion_batches_continue_each_others_numbering():
+    """Batch two starts where batch one stopped, instead of restarting at 0."""
+    argv = [str(a) for a in build_command(_rfd_cfg(), Path("/out/design"), 10, start=10)]
+    assert "inference.design_startnum=10" in argv
+    assert "inference.output_prefix=/out/design" in " ".join(argv).replace("\\", "/")
+
+
+def test_rfdiffusion_startnum_can_be_pinned_in_config():
+    cfg = _rfd_cfg("generate.design_startnum=20")
+    assert "inference.design_startnum=20" in build_command(cfg, Path("/out/design"), 10, start=0)

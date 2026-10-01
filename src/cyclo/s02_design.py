@@ -21,8 +21,10 @@ def _mpnn(cfg: Config, script: str) -> str:
     return f"{root}/{script}" if root else script
 
 
-def build_commands(cfg: Config, pdb_dir: Path, work: Path) -> list[tuple[str, list[str]]]:
-    parsed, tied = work / "parsed_chains.jsonl", work / "tied_positions.jsonl"
+def build_commands(cfg: Config, pdb_dir: Path, work: Path,
+                   aux: Path | None = None) -> list[tuple[str, list[str]]]:
+    aux = aux or work                                   # intermediates live apart from results
+    parsed, tied = aux / "parsed_chains.jsonl", aux / "tied_positions.jsonl"
     n_seq = int(cfg.get("design.n_seq_per_backbone", 10))
     temp = str(cfg.get("design.sampling_temp", 0.1))
 
@@ -108,14 +110,16 @@ def run(cfg: Config, state: RunState, runner: Runner, force: bool = False) -> li
         raise RuntimeError("no backbones passed stage 01; loosen backbone_filter.rules")
 
     work = state.stage_dir(STAGE)
-    staged = work / "input_pdbs"
+    aux = state.outdir / "logs"
+    aux.mkdir(parents=True, exist_ok=True)
+    staged = work / "pdb_filtered"                      # the backbones that passed stage 01
     if staged.exists():
         shutil.rmtree(staged)
     staged.mkdir(parents=True)
     for record in df.to_dict("records"):                    # only passing backbones go to the GPU
         shutil.copy2(record["backbone_path"], staged / f"{record['backbone_id']}.pdb")
 
-    for tool, argv in build_commands(cfg, staged, work):
+    for tool, argv in build_commands(cfg, staged, work, aux):
         runner.run(tool, argv)
 
     rows = []
