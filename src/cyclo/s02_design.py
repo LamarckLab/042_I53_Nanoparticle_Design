@@ -129,6 +129,7 @@ def run(cfg: Config, state: RunState, runner: Runner, force: bool = False) -> li
                 **entry,
             })
     state.sequences.upsert(rows)
-    state.mark_done(STAGE)
+    if not runner.dry_run:                                   # a dry run must leave no trace
+        state.mark_done(STAGE)
     print(f"[{STAGE}] {len(rows)} sequences from {len(df)} backbones")
     return rows

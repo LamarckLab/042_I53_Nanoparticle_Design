@@ -95,7 +95,8 @@ def run(cfg: Config, state: RunState, runner: Runner, force: bool = False) -> li
 
     rows = [{"sequence_id": r["sequence_id"], **collect(work, r["sequence_id"])} for r in records]
     state.sequences.upsert(rows)
-    state.mark_done(STAGE)
+    if not runner.dry_run:                                   # a dry run must leave no trace
+        state.mark_done(STAGE)
     n_ok = sum(1 for r in rows if r.get("fold_ok"))
     print(f"[{STAGE}] {n_ok}/{len(rows)} predictions recovered")
     return rows
