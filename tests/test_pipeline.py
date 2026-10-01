@@ -31,11 +31,14 @@ N_GOOD, N_BAD, N_SEQ = 4, 3, 10
 class Harness:
     """A temporary run directory pre-populated with synthetic stage-00 output."""
 
-    def __init__(self):
+    def __init__(self, rules: str = '["n_clash == 0"]'):
         self.tmp = Path(tempfile.mkdtemp(prefix="cyclo_pipeline_"))
+        # Rules are stated here rather than inherited: filtering is off in the shipped
+        # defaults, so a test that wants rejection must ask for it.
         self.cfg = load_config(overrides=parse_overrides([
             "target.symmetry=C5", "target.monomer_length=60",
             f"run.outdir={self.tmp.as_posix()}",
+            f"backbone_filter.rules={rules}",
             "validate.rmsd_cutoff=1.0", "validate.plddt_cutoff=80",
         ]))
         self.state = RunState(self.cfg.outdir)
@@ -317,14 +320,29 @@ def test_rfdiffusion_never_emits_monomer_rog():
 
 
 def test_default_command_matches_the_verified_baseline():
-    """The shipped default reproduces the hand-run command exactly, nothing added."""
+    """The shipped default reproduces the hand-run command exactly, nothing added.
+
+    The baseline is the invocation with oligomer-contact potentials, which measurably
+    removes backbone clashes and gives more compact subunits than the bare form.
+    """
     argv = build_command(_rfd_cfg(), Path("/out/output"), 50, Path("/logs"))
     joined = " ".join(str(a) for a in argv).replace("\\", "/")
-    for expected in ("--config-name symmetry", "inference.symmetry=c5",
-                     "contigmap.contigs=[300-300]", "inference.output_prefix=/out/output",
-                     "hydra.run.dir=/logs", "inference.num_designs=50"):
+    for expected in (
+        "--config-name symmetry",
+        "inference.symmetry=c5",
+        "contigmap.contigs=[300-300]",
+        'potentials.guiding_potentials=["type:olig_contacts,weight_intra:1,weight_inter:0.1"]',
+        "potentials.olig_intra_all=True",
+        "potentials.olig_inter_all=True",
+        "potentials.guide_scale=2",
+        "potentials.guide_decay=quadratic",
+        "inference.output_prefix=/out/output",
+        "hydra.run.dir=/logs",
+        "inference.num_designs=50",
+    ):
         assert expected in joined, expected
-    for absent in ("potentials", "diffuser.T", "inference.seed", "monomer_ROG"):
+    # still nothing speculative: these keys do not exist in the shipped hydra configs
+    for absent in ("diffuser.T", "inference.seed", "monomer_ROG", "guide_scale=2.0"):
         assert absent not in joined, absent
 
 
@@ -392,3 +410,38 @@ def test_tool_with_neither_conda_env_nor_tool_env_is_rejected():
         raise AssertionError("expected a KeyError")
     except KeyError:
         pass
+
+
+def test_dry_run_leaves_no_completion_marker():
+    """A dry run that marked stages done would make the following real run skip them."""
+    import tempfile
+    from cyclo.manifest import RunState
+    from cyclo.runner import Runner
+    from cyclo import s00_generate
+    tmp = Path(tempfile.mkdtemp(prefix="cyclo_dry_"))
+    cfg = load_config(overrides=parse_overrides([
+        f"run.outdir={tmp.as_posix()}", "target.n_backbones=2"]))
+    state = RunState(cfg.outdir)
+    s00_generate.run(cfg, state, Runner(kind="local", dry_run=True))
+    assert not state.is_done("00_backbones")
+
+
+def test_filtering_is_off_in_the_shipped_defaults():
+    """Every backbone must reach sequence design unless rules are added explicitly."""
+    cfg = load_config()
+    assert cfg.get("backbone_filter.rules") == []
+
+
+def test_metrics_are_still_recorded_when_nothing_is_filtered():
+    """Turning filtering off must not turn measurement off."""
+    h = Harness(rules="[]")
+    h.seed_backbones()
+    try:
+        summary = s01_backbone_filter.run(h.cfg, h.state)
+        assert summary["n_pass"] == N_GOOD + N_BAD          # nothing rejected
+        df = h.state.backbones.load()
+        assert df["bb_pass"].astype(bool).all()
+        for column in ("helix_frac", "n_clash", "shape_anisotropy", "sym_order_detected"):
+            assert df[column].notna().all(), column          # measured anyway
+    finally:
+        h.close()

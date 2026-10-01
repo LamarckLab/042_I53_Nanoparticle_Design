@@ -30,6 +30,12 @@ All notable changes to this project are documented here. The format follows
   defaults pass 71% of them and `configs/presets/compact_subunit.yaml` passes 33%.
 
 ### Changed
+- Backbone filtering is off by default. Stage 01 measures every backbone and passes
+  all of them to sequence design; rules are opt-in. Metrics are recorded either way,
+  so a filter can be applied afterwards by replaying stage 01 alone.
+- Default run size is 50 backbones with 10 sequences each.
+- A dry run no longer writes stage completion markers, which previously made the
+  following real run skip the stages it had only simulated.
 - The emitted RFdiffusion command now reproduces a verified hand-run invocation
   exactly: lowercase symmetry token, explicit `hydra.run.dir`, and no speculative
   keys. `inference.seed` does not exist in either shipped config and would have

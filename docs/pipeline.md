@@ -21,11 +21,15 @@ never sees the per-chain number.
 
 Output: `00_backbones/batch*_*.pdb`, one row per backbone in `tables/backbones.csv`.
 
-## 01 - Backbone filtering
+## 01 - Backbone measurement and optional filtering
 
 Computes 29 metrics per backbone (see [metrics.md](metrics.md)) and evaluates the
 `backbone_filter.rules` expressions against them. Sets `bb_pass` and records
 `bb_fail_reason` listing every rule that failed.
+
+**The rule list is empty by default**, so nothing is rejected and every backbone
+reaches sequence design. The metrics are recorded regardless, which is what makes
+filtering a later decision rather than a commitment made before the run.
 
 A backbone whose PDB cannot be parsed is marked failed rather than crashing the run.
 

@@ -28,7 +28,7 @@ is the application; cyclic oligomer design is the tool.
 
 ```
 00  generate    RFdiffusion, symmetric mode          ->  N backbones
-01  filter      29 geometric metrics, config rules   ->  backbones that survive
+01  measure     29 geometric metrics per backbone    ->  metrics table (no filtering by default)
 02  design      ProteinMPNN, tied positions          ->  M sequences per backbone
 03  fold        AlphaFold2 monomer, single-sequence  ->  predicted structures
 04  validate    CA RMSD vs design, success rate      ->  ranked backbones
@@ -45,8 +45,9 @@ Three rules make the pipeline reproducible and the thresholds tunable after the 
 whether any rule references it. Metrics that only the future fusion stage will need,
 such as terminal helix lengths, are already recorded.
 
-**Filter declaratively.** Thresholds live in YAML as expressions over metric names,
-never in code:
+**Filter declaratively, and only when asked.** No rules ship enabled: every backbone
+reaches sequence design, and stage 01 records rather than rejects. Thresholds, when
+wanted, live in YAML as expressions over metric names, never in code:
 
 ```yaml
 backbone_filter:
@@ -55,6 +56,9 @@ backbone_filter:
     - "helix_frac >= 0.35"
     - "rg_ratio <= 1.30"
 ```
+
+Because the metrics are recorded either way, a filter can be applied after a run
+finishes by adding rules and replaying stage 01 alone.
 
 **Never delete.** A rejected candidate keeps all of its metrics and gains a pass flag
 plus the rules it failed. Retuning a threshold replays one CPU-bound stage instead of

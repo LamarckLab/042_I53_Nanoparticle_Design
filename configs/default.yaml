@@ -24,10 +24,14 @@ generate:
   batch_size: 10              # designs per RFdiffusion invocation
   hydra_run_dir: null         # default: <outdir>/00_backbones/hydra
   potentials:
-    # Off by default, matching the verified baseline invocation. Turning this on adds
-    # the oligomer-contact guiding potentials, which are worth testing but change the
-    # command away from the one known to work.
-    enabled: false
+    # On by default, from 50 backbones generated with them against 10 generated
+    # without, all C5 at 60 residues. Medians, with -> without:
+    #   helix fraction    0.57 -> 0.36      strand fraction  0.27 -> 0.41
+    #   rg_ratio          1.13 -> 1.30      shape anisotropy 0.30 -> 0.44
+    # Clash rate is NOT improved: 26% of 50 with, 30% of 10 without. An earlier note
+    # here claimed the potentials eliminated clashes, which came from a sample of 8
+    # and did not survive the larger run.
+    enabled: true
     # olig_contacts is chain-aware (it takes chain_lengths), so weight_intra is the
     # correct knob for "make each subunit more compact".
     #
@@ -45,20 +49,22 @@ generate:
   extra_args: []              # passed through verbatim to run_inference.py
 
 # ------------------------------------------------- 01  backbone filtering
-# All metrics are always computed and stored. These rules only set the pass flag.
+# All 29 metrics are computed and stored for every backbone regardless of what is
+# listed here; these rules only set the pass flag.
+#
+# The list is EMPTY by default, so nothing is rejected and every backbone reaches
+# sequence design. The metrics are still recorded, so a filter can be applied after
+# the fact by adding rules and replaying this stage alone -- no GPU work is repeated.
+#
+# Example rules, should you want to enable filtering later:
+#   - "n_clash == 0"                     # no backbone overlap
+#   - "sym_order_ok"                     # detected Cn matches the request
+#   - "helix_frac >= 0.35"               # loop-dominated backbones are undesignable
+#   - "rg_ratio <= 1.30"                 # compact relative to 2.2 * N^0.38
+#   - "shape_anisotropy <= 0.50"         # 0 is a sphere, 1 is a rod
+# configs/presets/compact_subunit.yaml holds a calibrated set.
 backbone_filter:
-  rules:
-    - "n_clash == 0"                       # no backbone overlap, intra or inter chain
-    - "sym_rmsd <= 0.5"                    # chains are genuinely superimposable
-    - "sym_order_ok"                       # detected Cn matches the requested Cn
-    - "helix_frac >= 0.35"                 # loop-dominated backbones are undesignable
-    - "loop_max_len <= 12"                 # no long floppy segments
-    - "rg_ratio <= 1.30"                   # compact relative to 2.2 * N^0.38
-    - "shape_anisotropy <= 0.50"           # reject rod-like subunits (0 sphere, 1 rod)
-    - "iface_contacts_per_chain >= 20"     # subunits actually touch each other
-    - "contact_order <= 0.35"              # very high contact order folds poorly
-  # To select only the more compact, helix-rich subunits, overlay
-  # configs/presets/compact_subunit.yaml (calibrated to pass about a third).
+  rules: []
 
 # ------------------------------------------------- 02  sequence design
 design:
