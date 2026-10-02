@@ -115,3 +115,65 @@ def test_real_fasta_header_brackets_do_not_break_parsing():
     from cyclo.s02_design import parse_fasta
     assert "designed_chains=['A', 'B'" in MPNN_FA.read_text(encoding="utf-8")
     assert len(parse_fasta(MPNN_FA)) == 4        # parsed anyway
+
+
+# ---------------------------------------------------------------- AlphaFold2 output
+PRED_ID = "batch000_5__seq000"
+PRED_PDB = DATA / f"{PRED_ID}_unrelaxed_rank_001_alphafold2_ptm_model_1_seed_000.pdb"
+SCORES = DATA / f"{PRED_ID}_scores_rank_001_alphafold2_ptm_model_1_seed_000.json"
+
+
+def test_collect_matches_the_real_colabfold_filenames():
+    """The identifiers carry a double underscore; colabfold keeps it, so the glob must too."""
+    from cyclo.s03_fold import collect
+    assert "__" in PRED_ID
+    row = collect(DATA, PRED_ID)
+    assert row["fold_ok"] is True
+    assert Path(row["pred_path"]).name == PRED_PDB.name
+
+
+def test_collect_reads_the_confidence_scores():
+    from cyclo.s03_fold import collect
+    row = collect(DATA, PRED_ID)
+    assert abs(row["mean_plddt"] - 94.5157) < 1e-3
+    assert abs(row["min_plddt"] - 72.75) < 1e-6
+    assert abs(row["ptm"] - 0.73) < 1e-6
+
+
+def test_collect_reports_a_missing_prediction_instead_of_raising():
+    from cyclo.s03_fold import collect
+    row = collect(DATA, "no_such_sequence")
+    assert row["fold_ok"] is False and row["pred_path"] is None
+
+
+def test_real_scores_json_has_one_plddt_per_residue():
+    import json
+    data = json.loads(SCORES.read_text(encoding="utf-8"))
+    assert set(data) >= {"plddt", "ptm"}
+    assert len(data["plddt"]) == 60                  # matches the 60-residue monomer
+
+
+def test_real_prediction_is_a_single_chain_with_full_backbone():
+    """AlphaFold2 predicts the monomer only; the design oligomer has five chains."""
+    struct = read_pdb(str(PRED_PDB))
+    assert struct.n_chains == 1
+    assert struct.chains["A"].n_res == 60
+    assert set(struct.chains["A"].coords) >= {"N", "CA", "C", "O"}
+
+
+def test_real_prediction_has_real_residue_names_unlike_the_design():
+    """The design backbone is poly-glycine, which is why sequence alignment cannot pair them."""
+    design = [ln[17:20] for ln in
+              (DATA / "rfdiffusion_c5_60aa_pass.pdb").read_text(encoding="utf-8").splitlines()
+              if ln.startswith("ATOM")]
+    pred = [ln[17:20] for ln in PRED_PDB.read_text(encoding="utf-8").splitlines()
+            if ln.startswith("ATOM")]
+    assert set(design) == {"GLY"}
+    assert len(set(pred)) > 5
+
+
+def test_self_consistency_rmsd_runs_on_real_files():
+    from cyclo.s04_validate import monomer_rmsd
+    assert monomer_rmsd(PRED_PDB, PRED_PDB) < 1e-9   # identical structures
+    value = monomer_rmsd(DATA / "rfdiffusion_c5_60aa_pass.pdb", PRED_PDB)
+    assert value > 0                                 # unrelated design and prediction
