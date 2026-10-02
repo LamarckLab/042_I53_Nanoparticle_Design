@@ -189,7 +189,10 @@ def test_posix_outroot_is_absolute_even_on_windows():
     from cyclicnano.config import REPO_ROOT
     cfg = load_config(overrides=parse_overrides(
         ["run.outroot=/data/lmk/cyclicnano_outputs", "run.name=c3", "run.outdir=null"]))
-    assert str(REPO_ROOT) not in str(cfg.outdir)
+    # is_relative_to, not a substring test: after the repository was renamed to
+    # cyclicnano its path became a prefix of cyclicnano_outputs, and a naive
+    # "not in" check started failing on a layout that is perfectly correct.
+    assert not cfg.outdir.is_relative_to(REPO_ROOT)
     assert cfg.outdir.as_posix() == "/data/lmk/cyclicnano_outputs/c3"
 
 
@@ -206,7 +209,7 @@ def test_amax_profile_sends_results_outside_the_code_directory():
         cfg = load_config(["configs/runs/base.yaml", f"configs/runs/{variant}.yaml"],
                           "configs/profiles/amax.yaml")
         assert cfg.outdir.as_posix() == f"/data/lmk/cyclicnano_outputs/{variant}"
-        assert str(REPO_ROOT) not in str(cfg.outdir)
+        assert not cfg.outdir.is_relative_to(REPO_ROOT)
 
 
 def test_shipped_configs_are_present_and_tracked():
