@@ -13,6 +13,18 @@ DEFAULT_CONFIG = REPO_ROOT / "configs" / "default.yaml"
 SYMMETRY_ORDERS = {f"C{i}": i for i in range(2, 13)}
 
 
+def _is_absolute(path: Path) -> bool:
+    """Absolute on the host, or a POSIX path written for the machine that will run it.
+
+    Path.is_absolute() is False for "/data/lmk/runs" on Windows, since it carries no
+    drive, so a config authored for a Linux host would otherwise be resolved against
+    the repository root when inspected from a workstation.
+    """
+    # as_posix(), not str(): on Windows str() renders the separators as backslashes,
+    # so the leading slash of a POSIX path would not be visible.
+    return path.is_absolute() or path.as_posix().startswith("/")
+
+
 def _deep_merge(base: dict, over: dict) -> dict:
     out = copy.deepcopy(base)
     for k, v in (over or {}).items():
@@ -26,8 +38,25 @@ def _deep_merge(base: dict, over: dict) -> dict:
 class Config:
     """Dotted read access over the merged config dict."""
 
-    def __init__(self, data: dict):
+    def __init__(self, data: dict, sources: list | None = None, overrides: dict | None = None):
         self.data = data
+        self.sources = sources or []                        # files merged, in precedence order
+        self.overrides = overrides or {}                    # command-line --set values
+
+    def resolved_yaml(self) -> str:
+        """The merged config, annotated with where it came from.
+
+        Written into every run so the directory records its own recipe: a run made
+        with --set overrides is otherwise only reconstructable from shell history.
+        """
+        lines = ["# Fully merged configuration, written when the run started.",
+                 "# Later sources override earlier ones.", "#", "# Sources:"]
+        lines += [f"#   {src}" for src in self.sources]
+        if self.overrides:
+            lines.append(f"#   command line: {self.overrides}")
+        body = yaml.safe_dump(self.data, sort_keys=False, allow_unicode=True,
+                              default_flow_style=False)
+        return "\n".join(lines) + "\n\n" + body
 
     def get(self, dotted: str, default: Any = None) -> Any:
         node: Any = self.data
@@ -70,9 +99,18 @@ class Config:
 
     @property
     def outdir(self) -> Path:
-        return (REPO_ROOT / str(self.require("run.outdir"))).resolve() \
-            if not Path(str(self.require("run.outdir"))).is_absolute() \
-            else Path(str(self.require("run.outdir")))
+        """Where this run writes, as `run.outdir` or else `run.outroot` / `run.name`.
+
+        Splitting the two lets the machine profile say where results live on this
+        host while the run config says only what the run is called, so switching
+        between the C5 and C3 variants needs no path on the command line.
+        """
+        explicit = self.get("run.outdir")
+        if explicit:
+            path = Path(str(explicit))
+        else:
+            path = Path(str(self.get("run.outroot", "runs"))) / str(self.require("run.name"))
+        return path if _is_absolute(path) else (REPO_ROOT / path).resolve()
 
     def validate(self) -> list[str]:
         """Cheap startup checks; returns a list of human-readable problems."""
@@ -101,20 +139,37 @@ class Config:
         return problems
 
 
-def load_config(path: str | Path | None = None,
+def load_config(path: str | Path | list | None = None,
                 profile: str | Path | None = None,
                 overrides: dict | None = None) -> Config:
-    """default.yaml <- user config <- machine profile <- CLI overrides."""
+    """default.yaml <- user config(s) <- machine profile <- CLI overrides.
+
+    `path` takes several files so shared settings can live in one of them and the
+    per-run differences in another, instead of being copied between near-identical
+    files that then drift apart.
+    """
     data = yaml.safe_load(DEFAULT_CONFIG.read_text(encoding="utf-8")) or {}
-    for extra in (path, profile):
-        if extra:
-            p = Path(extra)
-            if not p.is_absolute():
-                p = REPO_ROOT / p
-            data = _deep_merge(data, yaml.safe_load(p.read_text(encoding="utf-8")) or {})
+    sources = [str(DEFAULT_CONFIG)]
+
+    if path is None:
+        given: list = []
+    elif isinstance(path, (str, Path)):
+        given = [path]
+    else:
+        given = list(path)
+
+    for extra in [*given, profile]:
+        if not extra:
+            continue
+        p = Path(extra)
+        if not p.is_absolute():
+            p = REPO_ROOT / p
+        data = _deep_merge(data, yaml.safe_load(p.read_text(encoding="utf-8")) or {})
+        sources.append(str(p))
+
     if overrides:
         data = _deep_merge(data, overrides)
-    return Config(data)
+    return Config(data, sources=sources, overrides=overrides)
 
 
 def parse_overrides(pairs: list[str]) -> dict:

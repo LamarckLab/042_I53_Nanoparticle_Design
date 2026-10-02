@@ -61,7 +61,8 @@ def main(argv: list[str] | None = None) -> int:
 
     for name in ("run", "check"):
         p = sub.add_parser(name)
-        p.add_argument("--config")
+        p.add_argument("--config", action="append", dest="config",
+                       help="may be given several times; later files win")
         p.add_argument("--profile")
         p.add_argument("--set", dest="overrides", action="append", default=[],
                        help="dotted override, e.g. --set target.symmetry=C3")
@@ -91,6 +92,13 @@ def main(argv: list[str] | None = None) -> int:
 
     state = RunState(cfg.outdir)
     Path(cfg.outdir).mkdir(parents=True, exist_ok=True)
+
+    # Record the recipe beside the results: a run made with --set overrides is
+    # otherwise only reconstructable from shell history.
+    if not args.dry_run:
+        logs = Path(cfg.outdir) / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        (logs / "resolved_config.yaml").write_text(cfg.resolved_yaml(), encoding="utf-8")
     runner = runner_from_config(cfg, cfg.outdir, dry_run=args.dry_run)
     wanted = [s.strip() for s in args.stages.split(",") if s.strip()]
 

@@ -1,5 +1,5 @@
 # =============================================================================
-# cyclo - default configuration
+# cyclicnano - default configuration
 #
 # Every subjective decision in the manual protocol appears here as a number.
 # Thresholds are deliberately conservative starting points, NOT validated values;
@@ -9,7 +9,10 @@
 
 run:
   name: c5_60aa_v1
-  outdir: runs/c5_60aa_v1
+  # Results land in <outroot>/<name>. A machine profile sets outroot, so the run
+  # config only has to say what the run is called. Setting outdir overrides both.
+  outroot: runs
+  outdir: null
   # Must be non-zero: ProteinMPNN treats --seed 0 as a request for a RANDOM seed,
   # so leaving it at 0 silently makes sequence design irreproducible.
   seed: 1

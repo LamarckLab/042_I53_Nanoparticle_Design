@@ -1,9 +1,12 @@
 # Machine profile: amax lab server (Ubuntu 20.04, 8 GPUs, shared with other users).
 #
 # Overlay on top of default.yaml:
-#   cyclo run --config my_run.yaml --profile configs/profiles/amax.yaml
+#   cyclicnano run --config my_run.yaml --profile configs/profiles/amax.yaml
 #
 # Verify the three tool paths against the actual installation before the first run.
+
+run:
+  outroot: /data/lmk/cyclicnano_outputs   # results live outside the code directory
 
 compute:
   # The eight cards on this box are normally idle and these jobs are small, so no
