@@ -6,6 +6,6 @@ authors:
   # TODO: replace with the full author list before the first tagged release.
   - name: "LamarckLab"
     email: "lmk704021302@gmail.com"
-repository-code: "https://github.com/LamarckLab/042_I53_Nanoparticle_Design"
+repository-code: "https://github.com/LamarckLab/cyclicnano"
 license: MIT
 version: 0.1.0

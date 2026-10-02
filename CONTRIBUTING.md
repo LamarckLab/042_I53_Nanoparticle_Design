@@ -4,7 +4,7 @@
 
 ```bash
 git clone <repository-url>
-cd 042_I53_Nanoparticle_Design
+cd cyclicnano
 python -m pip install -e ".[dev,parquet]"
 ```
 

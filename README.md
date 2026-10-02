@@ -1,14 +1,18 @@
-# I53 Nanoparticle Design
+# cyclicnano
 
-Automated de novo design pipeline for I53 icosahedral protein nanoparticles:
-RFdiffusion backbones to objective geometric measurement to ProteinMPNN to AlphaFold2
-self-consistency validation.
+De novo design of cyclic protein oligomers for symmetric nanoparticle assembly:
+RFdiffusion backbones, objective geometric measurement, ProteinMPNN sequences and
+AlphaFold2 self-consistency validation, in one unattended command.
 
-The package installs as **`cyclicnano`**: cyclic symmetry, because a Cn point group is
-defined by a single n-fold rotation axis, and the nanoparticles those components
-assemble into.
+Built to produce the C5 and C3 components of I53 icosahedral nanoparticles, but
+nothing in the pipeline is specific to that target: the symmetry order is a
+parameter, so the same run designs any cyclic homo-oligomer from C2 to C12.
 
-[![CI](https://github.com/LamarckLab/042_I53_Nanoparticle_Design/actions/workflows/ci.yml/badge.svg)](https://github.com/LamarckLab/042_I53_Nanoparticle_Design/actions/workflows/ci.yml)
+The name is the scope. *Cyclic*, because a Cn point group is defined by a single
+n-fold rotation axis, which is what distinguishes it from the dihedral and
+polyhedral groups. *Nano*, for the particles those components assemble into.
+
+[![CI](https://github.com/LamarckLab/cyclicnano/actions/workflows/ci.yml/badge.svg)](https://github.com/LamarckLab/cyclicnano/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -75,8 +79,8 @@ which threshold is doing the work.
 ## Installation
 
 ```bash
-git clone https://github.com/LamarckLab/042_I53_Nanoparticle_Design.git
-cd 042_I53_Nanoparticle_Design
+git clone https://github.com/LamarckLab/cyclicnano.git
+cd cyclicnano
 python -m pip install -e ".[parquet]"
 ```
 
