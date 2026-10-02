@@ -24,4 +24,4 @@ jobs:
       - name: Test
         run: pytest -q
       - name: Validate shipped config
-        run: cyclo check
+        run: cyclicnano check

@@ -7,7 +7,7 @@
 # useless.
 #
 # Overlay on top of the defaults:
-#   cyclo run --config my_run.yaml --profile configs/presets/compact_subunit.yaml
+#   cyclicnano run --config my_run.yaml --profile configs/presets/compact_subunit.yaml
 #
 # What the calibration run showed, and why these rules look the way they do:
 #

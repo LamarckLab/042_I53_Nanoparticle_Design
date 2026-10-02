@@ -1,8 +1,12 @@
 # I53 Nanoparticle Design
 
 Automated de novo design pipeline for I53 icosahedral protein nanoparticles:
-RFdiffusion backbones to objective geometric filtering to ProteinMPNN to AlphaFold2
+RFdiffusion backbones to objective geometric measurement to ProteinMPNN to AlphaFold2
 self-consistency validation.
+
+The package installs as **`cyclicnano`**: cyclic symmetry, because a Cn point group is
+defined by a single n-fold rotation axis, and the nanoparticles those components
+assemble into.
 
 [![CI](https://github.com/LamarckLab/042_I53_Nanoparticle_Design/actions/workflows/ci.yml/badge.svg)](https://github.com/LamarckLab/042_I53_Nanoparticle_Design/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
@@ -91,28 +95,30 @@ to DeepMind's own licence terms; check those before any non-academic use.
 
 ## Usage
 
+A run is described by two config files: `base.yaml` holds everything the pentamer and
+the trimer must share, and a second file supplies the symmetry and the run name. The
+split is deliberate, since settings copied between two self-contained files drift
+apart and make the two sets of results incomparable.
+
 ```bash
-# validate the config and the filter rules without running anything
-cyclo check --config configs/default.yaml
+# validate the configuration without running anything
+cyclicnano check --config configs/runs/base.yaml --config configs/runs/c5.yaml                  --profile configs/profiles/amax.yaml
 
 # print the constructed tool commands without executing them
-cyclo run --profile configs/profiles/amax.yaml --dry-run
+cyclicnano run --config configs/runs/base.yaml --config configs/runs/c5.yaml                --profile configs/profiles/amax.yaml --dry-run
 
-# full run
-cyclo run --profile configs/profiles/amax.yaml
+# full run; swap c5.yaml for c3.yaml to design the trimer instead
+cyclicnano run --config configs/runs/base.yaml --config configs/runs/c5.yaml                --profile configs/profiles/amax.yaml
 
-# a single stage, or a re-run of one after changing a threshold
-cyclo run --stages 01 --force
+# re-run one stage after changing a threshold, repeating no GPU work
+cyclicnano run --config ... --stages 01 --force
 
 # inspect one backbone without the pipeline
-cyclo metrics path/to/backbone.pdb --symmetry C5
+cyclicnano metrics path/to/backbone.pdb --symmetry C5
 ```
 
-Design a C3 trimer instead of a C5 pentamer by overriding two values:
-
-```bash
-cyclo run --set target.symmetry=C3 --set run.name=c3_60aa_v1
-```
+Every run writes `logs/resolved_config.yaml`, the fully merged configuration including
+any `--set` overrides, so a result directory records the settings that produced it.
 
 ## Output
 

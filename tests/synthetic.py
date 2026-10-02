@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from cyclo.pdbio import Chain, Structure
+from cyclicnano.pdbio import Chain, Structure
 
 HELIX_RADIUS = 2.3          # ideal alpha-helix CA radius, angstrom
 HELIX_RISE = 1.5            # rise per residue along the axis

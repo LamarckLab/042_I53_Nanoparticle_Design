@@ -160,7 +160,7 @@ have already been generated and validated, instead of requiring a regeneration.
 
 ## Adding a metric
 
-1. Compute it in `cyclo.geometry.backbone_metrics` and return it in the dict.
+1. Compute it in `cyclicnano.geometry.backbone_metrics` and return it in the dict.
 2. Add it to `test_metric_set_is_complete` in `tests/test_geometry.py`.
 3. Add a test showing it separates a good fixture from a bad one.
 4. Document it here, including the failure mode it is meant to catch.

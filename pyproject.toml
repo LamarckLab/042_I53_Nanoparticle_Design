@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cyclo"
+name = "cyclicnano"
 version = "0.1.0"
 description = "Automated de novo design and in-silico validation of cyclic homo-oligomers"
 readme = "README.md"
@@ -20,7 +20,7 @@ parquet = ["pyarrow>=14"]
 dev = ["pytest>=7"]
 
 [project.scripts]
-cyclo = "cyclo.cli:main"
+cyclicnano = "cyclicnano.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "cyclo: automated de novo design of cyclic protein homo-oligomers"
+title: "cyclicnano: de novo design of cyclic protein oligomers for symmetric nanoparticle assembly"
 message: "If you use this software, please cite it as below."
 type: software
 authors:

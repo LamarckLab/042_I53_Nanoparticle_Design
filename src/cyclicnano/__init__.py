@@ -1,4 +1,4 @@
-"""cyclo - automated de novo design and in-silico validation of cyclic homo-oligomers."""
+"""cyclicnano - automated de novo design and in-silico validation of cyclic homo-oligomers."""
 
 __version__ = "0.1.0"
 

@@ -15,14 +15,14 @@ from pathlib import Path
 
 import numpy as np
 
-from cyclo import s01_backbone_filter, s04_validate
-from cyclo.config import load_config, parse_overrides
-from cyclo.manifest import RunState
-from cyclo.pdbio import extract_monomer, read_pdb, write_pdb
-from cyclo.runner import Runner
-from cyclo.s00_generate import build_command
-from cyclo.s02_design import build_commands, parse_fasta
-from cyclo.s03_fold import build_command as fold_command
+from cyclicnano import s01_backbone_filter, s04_validate
+from cyclicnano.config import load_config, parse_overrides
+from cyclicnano.manifest import RunState
+from cyclicnano.pdbio import extract_monomer, read_pdb, write_pdb
+from cyclicnano.runner import Runner
+from cyclicnano.s00_generate import build_command
+from cyclicnano.s02_design import build_commands, parse_fasta
+from cyclicnano.s03_fold import build_command as fold_command
 from synthetic import clashing_oligomer, cyclic_oligomer
 
 N_GOOD, N_BAD, N_SEQ = 4, 3, 10
@@ -32,7 +32,7 @@ class Harness:
     """A temporary run directory pre-populated with synthetic stage-00 output."""
 
     def __init__(self, rules: str = '["n_clash == 0"]'):
-        self.tmp = Path(tempfile.mkdtemp(prefix="cyclo_pipeline_"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="cyclicnano_pipeline_"))
         # Rules are stated here rather than inherited: filtering is off in the shipped
         # defaults, so a test that wants rejection must ask for it.
         self.cfg = load_config(overrides=parse_overrides([
@@ -382,14 +382,14 @@ def test_colabfold_optional_flags_are_emitted_when_set():
 
 def test_pixi_managed_tool_is_not_wrapped_in_conda_run():
     """LocalColabFold registers no conda env; it is reached through PATH instead."""
-    from cyclo.runner import runner_from_config
+    from cyclicnano.runner import runner_from_config
     r = runner_from_config(_fold_cfg(), Path("/tmp"))
     assert r.wrap("colabfold", ["colabfold_batch", "x"]) == ["colabfold_batch", "x"]
     assert r.wrap("proteinmpnn", ["python", "x"])[:3] == ["conda", "run", "-n"]
 
 
 def test_tool_env_prepends_rather_than_replaces_path():
-    from cyclo.runner import runner_from_config
+    from cyclicnano.runner import runner_from_config
     r = runner_from_config(_fold_cfg(), Path("/tmp"))
     env = r.env_vars("colabfold")
     assert env["PATH"].startswith("/data/lmk/localcolabfold/.pixi/envs/default/bin")
@@ -398,13 +398,13 @@ def test_tool_env_prepends_rather_than_replaces_path():
 
 
 def test_tool_env_is_scoped_to_its_tool():
-    from cyclo.runner import runner_from_config
+    from cyclicnano.runner import runner_from_config
     r = runner_from_config(_fold_cfg(), Path("/tmp"))
     assert "/localcolabfold/" not in r.env_vars("rfdiffusion").get("PATH", "")
 
 
 def test_tool_with_neither_conda_env_nor_tool_env_is_rejected():
-    from cyclo.runner import Runner
+    from cyclicnano.runner import Runner
     try:
         Runner(kind="conda", envs={}, tool_env={}).wrap("colabfold", ["x"])
         raise AssertionError("expected a KeyError")
@@ -415,10 +415,10 @@ def test_tool_with_neither_conda_env_nor_tool_env_is_rejected():
 def test_dry_run_leaves_no_completion_marker():
     """A dry run that marked stages done would make the following real run skip them."""
     import tempfile
-    from cyclo.manifest import RunState
-    from cyclo.runner import Runner
-    from cyclo import s00_generate
-    tmp = Path(tempfile.mkdtemp(prefix="cyclo_dry_"))
+    from cyclicnano.manifest import RunState
+    from cyclicnano.runner import Runner
+    from cyclicnano import s00_generate
+    tmp = Path(tempfile.mkdtemp(prefix="cyclicnano_dry_"))
     cfg = load_config(overrides=parse_overrides([
         f"run.outdir={tmp.as_posix()}", "target.n_backbones=2"]))
     state = RunState(cfg.outdir)
@@ -470,7 +470,7 @@ def test_proteinmpnn_intermediates_are_written_outside_the_results_dir():
 
 # ------------------------------------------------------------------ stage 05
 def _run_through_delivery():
-    from cyclo import s05_delivery
+    from cyclicnano import s05_delivery
     h, _ = _run_through_stage04()
     s05_delivery.run(h.cfg, h.state)
     return h, Path(h.cfg.outdir) / "05_delivery"
@@ -528,7 +528,7 @@ def test_delivery_is_sorted_best_first():
 
 
 def test_delivery_rerun_clears_stale_hits():
-    from cyclo import s05_delivery
+    from cyclicnano import s05_delivery
     h, out = _run_through_delivery()
     try:
         (out / "zz_stale.pdb").write_text("junk", encoding="utf-8")
@@ -542,7 +542,7 @@ def test_delivery_requires_a_stage_04_verdict():
     h = Harness()
     h.seed_backbones()
     try:
-        from cyclo import s05_delivery
+        from cyclicnano import s05_delivery
         s01_backbone_filter.run(h.cfg, h.state)
         try:
             s05_delivery.run(h.cfg, h.state)

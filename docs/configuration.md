@@ -10,7 +10,7 @@ configs/default.yaml  <-  --config my_run.yaml  <-  --profile <machine>.yaml  <-
 config and a machine profile each override a subset. `--set` takes dotted keys and
 parses values as YAML, so `--set compute.gpus=[2,3]` gives a list.
 
-Run `cyclo check` after editing anything. It validates the keys, verifies that every
+Run `cyclicnano check` after editing anything. It validates the keys, verifies that every
 filter rule parses against a representative metric set, and reports the derived
 RFdiffusion contig length.
 

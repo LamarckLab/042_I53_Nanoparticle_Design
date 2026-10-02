@@ -4,11 +4,11 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from cyclo.manifest import RunState
+from cyclicnano.manifest import RunState
 
 
 def _state():
-    return RunState(Path(tempfile.mkdtemp(prefix="cyclo_manifest_")))
+    return RunState(Path(tempfile.mkdtemp(prefix="cyclicnano_manifest_")))
 
 
 def test_empty_table_loads_as_empty_frame():

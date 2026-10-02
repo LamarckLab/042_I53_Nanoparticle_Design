@@ -1,8 +1,8 @@
 """Command-line entry point.
 
-    cyclo run       --config my.yaml --profile config/profiles/amax.yaml
-    cyclo metrics   some_backbone.pdb --symmetry C5
-    cyclo check     --config my.yaml           # validate config and rule syntax only
+    cyclicnano run       --config my.yaml --profile config/profiles/amax.yaml
+    cyclicnano metrics   some_backbone.pdb --symmetry C5
+    cyclicnano check     --config my.yaml           # validate config and rule syntax only
 """
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def _check(cfg) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="cyclo", description="de novo cyclic oligomer design pipeline")
+    ap = argparse.ArgumentParser(prog="cyclicnano", description="de novo cyclic oligomer design pipeline")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     for name in ("run", "check"):

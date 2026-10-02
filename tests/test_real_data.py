@@ -12,10 +12,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cyclo.config import load_config
-from cyclo.filters import FilterSet
-from cyclo.geometry import backbone_metrics
-from cyclo.pdbio import read_pdb
+from cyclicnano.config import load_config
+from cyclicnano.filters import FilterSet
+from cyclicnano.geometry import backbone_metrics
+from cyclicnano.pdbio import read_pdb
 
 DATA = Path(__file__).resolve().parent / "data"
 PASS_PDB = DATA / "rfdiffusion_c5_60aa_pass.pdb"
@@ -85,7 +85,7 @@ MPNN_FA = DATA / "proteinmpnn_c5_tied.fa"
 
 def test_real_fasta_skips_the_input_sequence():
     """Entry 0 is the poly-glycine input backbone and must not be treated as a design."""
-    from cyclo.s02_design import parse_fasta
+    from cyclicnano.s02_design import parse_fasta
     entries = parse_fasta(MPNN_FA)
     assert len(entries) == 4
     assert not any(set(e["sequence"]) == {"G"} for e in entries)
@@ -93,7 +93,7 @@ def test_real_fasta_skips_the_input_sequence():
 
 def test_real_fasta_confirms_tied_positions_took_effect():
     """All five chains must carry the same sequence, or the oligomer cannot assemble."""
-    from cyclo.s02_design import parse_fasta
+    from cyclicnano.s02_design import parse_fasta
     for e in parse_fasta(MPNN_FA):
         assert e["n_chains_in_fasta"] == 5
         assert e["chains_identical"] is True
@@ -102,7 +102,7 @@ def test_real_fasta_confirms_tied_positions_took_effect():
 
 def test_real_fasta_metadata_is_parsed():
     """The header fields survive the comma split, including on the first design entry."""
-    from cyclo.s02_design import parse_fasta
+    from cyclicnano.s02_design import parse_fasta
     first = parse_fasta(MPNN_FA)[0]
     assert first["mpnn_score"] == 0.6490
     assert first["mpnn_global_score"] == 0.6490
@@ -112,7 +112,7 @@ def test_real_fasta_metadata_is_parsed():
 
 def test_real_fasta_header_brackets_do_not_break_parsing():
     """The skipped input header contains designed_chains=['A', 'B', ...] with commas."""
-    from cyclo.s02_design import parse_fasta
+    from cyclicnano.s02_design import parse_fasta
     assert "designed_chains=['A', 'B'" in MPNN_FA.read_text(encoding="utf-8")
     assert len(parse_fasta(MPNN_FA)) == 4        # parsed anyway
 
@@ -125,7 +125,7 @@ SCORES = DATA / f"{PRED_ID}_scores_rank_001_alphafold2_ptm_model_1_seed_000.json
 
 def test_collect_matches_the_real_colabfold_filenames():
     """The identifiers carry a double underscore; colabfold keeps it, so the glob must too."""
-    from cyclo.s03_fold import collect
+    from cyclicnano.s03_fold import collect
     assert "__" in PRED_ID
     row = collect(DATA, PRED_ID)
     assert row["fold_ok"] is True
@@ -133,7 +133,7 @@ def test_collect_matches_the_real_colabfold_filenames():
 
 
 def test_collect_reads_the_confidence_scores():
-    from cyclo.s03_fold import collect
+    from cyclicnano.s03_fold import collect
     row = collect(DATA, PRED_ID)
     assert abs(row["mean_plddt"] - 94.5157) < 1e-3
     assert abs(row["min_plddt"] - 72.75) < 1e-6
@@ -141,7 +141,7 @@ def test_collect_reads_the_confidence_scores():
 
 
 def test_collect_reports_a_missing_prediction_instead_of_raising():
-    from cyclo.s03_fold import collect
+    from cyclicnano.s03_fold import collect
     row = collect(DATA, "no_such_sequence")
     assert row["fold_ok"] is False and row["pred_path"] is None
 
@@ -173,7 +173,7 @@ def test_real_prediction_has_real_residue_names_unlike_the_design():
 
 
 def test_self_consistency_rmsd_runs_on_real_files():
-    from cyclo.s04_validate import monomer_rmsd
+    from cyclicnano.s04_validate import monomer_rmsd
     assert monomer_rmsd(PRED_PDB, PRED_PDB) < 1e-9   # identical structures
     value = monomer_rmsd(DATA / "rfdiffusion_c5_60aa_pass.pdb", PRED_PDB)
     assert value > 0                                 # unrelated design and prediction

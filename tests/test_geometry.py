@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from cyclo.geometry import (backbone_metrics, count_clashes, gyration_shape, rmsd,
+from cyclicnano.geometry import (backbone_metrics, count_clashes, gyration_shape, rmsd,
                             secondary_structure, symmetry_frame, terminal_run)
 from synthetic import (clashing_oligomer, cyclic_oligomer, extended_monomer,
                        helical_hairpin, spherical_cloud)
@@ -145,7 +145,7 @@ def test_three_helix_bundle_is_compact_and_all_alpha():
 
 
 def test_two_helix_hairpin_is_more_elongated_than_a_bundle():
-    from cyclo.pdbio import Chain, Structure
+    from cyclicnano.pdbio import Chain, Structure
     mono = helical_hairpin()
     struct = Structure(chains={"A": Chain("A", np.arange(1, len(mono) + 1), {"CA": mono})})
     m = backbone_metrics(struct)

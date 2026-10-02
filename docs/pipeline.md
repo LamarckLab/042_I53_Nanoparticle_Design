@@ -37,7 +37,7 @@ Output: metrics on every backbone row, plus `01_backbone_filter/filter_summary.j
 giving the rejection count attributable to each individual rule.
 
 This is the only stage worth re-running on its own. It is CPU-bound and takes seconds,
-so changing a threshold and running `cyclo run --stages 01 --force` is cheap.
+so changing a threshold and running `cyclicnano run --stages 01 --force` is cheap.
 
 ## 02 - Sequence design
 
@@ -47,7 +47,7 @@ ProteinMPNN over the backbones with `bb_pass` true. Three calls:
 
 Tied positions are mandatory. Without them each chain of a Cn backbone is designed
 independently and the resulting sequences cannot assemble; `design.tie_chains: false`
-is rejected during `cyclo check`.
+is rejected during `cyclicnano check`.
 
 The output FASTA carries the chains joined by `/`. The parser drops the first entry
 (the input sequence), splits on `/`, and records whether the chains came back
@@ -61,7 +61,7 @@ localcolabfold in `--msa-mode single_sequence`, monomer only, templates off.
 
 An MSA is not merely unnecessary for a de novo design, it is actively misleading: the
 sequence has no homologues, so the search returns nothing useful and any confidence
-derived from it is not interpretable. `cyclo check` flags any other `fold.msa_mode`.
+derived from it is not interpretable. `cyclicnano check` flags any other `fold.msa_mode`.
 
 Only the monomer is predicted. This validates that the designed sequence encodes the
 designed fold; it does not validate that the subunits assemble into the ring. That

@@ -1,8 +1,8 @@
 """Declarative filter engine: correctness and sandboxing."""
 from __future__ import annotations
 
-from cyclo.filters import FilterSet, RuleError, evaluate
-from cyclo.geometry import backbone_metrics
+from cyclicnano.filters import FilterSet, RuleError, evaluate
+from cyclicnano.geometry import backbone_metrics
 from synthetic import cyclic_oligomer
 
 METRICS = backbone_metrics(cyclic_oligomer(n_sym=5), expected_sym=5)

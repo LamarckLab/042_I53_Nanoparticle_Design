@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from cyclo.pdbio import extract_monomer, read_pdb, write_pdb
+from cyclicnano.pdbio import extract_monomer, read_pdb, write_pdb
 from synthetic import cyclic_oligomer
 
 
