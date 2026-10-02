@@ -15,8 +15,9 @@ venv/
 .coverage
 htmlcov/
 
-# Pipeline output
-runs/
+# Pipeline output. Anchored to the root on purpose: an unanchored runs/ also
+# matches configs/runs/, which silently kept the shipped run configs untracked.
+/runs/
 *.parquet
 
 # Model weights and databases (never committed)

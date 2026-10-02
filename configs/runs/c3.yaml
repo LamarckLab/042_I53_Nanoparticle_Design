@@ -1,0 +1,10 @@
+# Trimer: the three-fold component of an I53 cage.
+#
+#   cyclicnano run --config configs/runs/base.yaml --config configs/runs/c3.yaml \
+#             --profile configs/profiles/amax.yaml
+
+run:
+  name: c3                       # results go to <outroot>/c3
+
+target:
+  symmetry: C3                # contig total becomes 3 x monomer_length

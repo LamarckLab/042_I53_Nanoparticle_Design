@@ -1,0 +1,29 @@
+# Settings shared by every design run.
+#
+# Symmetry, run name and output directory are supplied by a second file, so that
+# the parts which must stay identical across runs live in exactly one place. Two
+# self-contained files would drift: raising n_seq_per_backbone for the pentamer
+# and forgetting the trimer makes the two sets of results incomparable.
+#
+# Pair it with one of the files beside it:
+#   cyclicnano run --config configs/runs/base.yaml --config configs/runs/c5.yaml \
+#             --profile configs/profiles/amax.yaml
+
+run:
+  # Non-zero on purpose: ProteinMPNN reads --seed 0 as a request for a random seed.
+  seed: 1
+
+target:
+  monomer_length: 60          # residues per chain
+  n_backbones: 50
+
+generate:
+  batch_size: 10              # designs per RFdiffusion call; only affects checkpointing
+
+design:
+  n_seq_per_backbone: 10
+
+validate:
+  rmsd_cutoff: 1.0            # CA RMSD for a sequence to count as folding back
+  plddt_cutoff: 80.0
+  also_record: [1.5, 2.0]     # stored as extra columns, so a cutoff can be revisited

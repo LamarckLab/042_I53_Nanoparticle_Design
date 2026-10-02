@@ -207,3 +207,27 @@ def test_amax_profile_sends_results_outside_the_code_directory():
                           "configs/profiles/amax.yaml")
         assert cfg.outdir.as_posix() == f"/data/lmk/cyclicnano_outputs/{variant}"
         assert str(REPO_ROOT) not in str(cfg.outdir)
+
+
+def test_shipped_configs_are_present_and_tracked():
+    """They were not tracked: an unanchored runs/ in .gitignore also matched
+    configs/runs/, so git add skipped them without a word.
+
+    Nothing failed locally, because the files existed in the working tree. CI
+    checked out a tree without them and every config test broke.
+    """
+    import subprocess
+    from cyclicnano.config import REPO_ROOT
+    required = ["configs/default.yaml", "configs/runs/base.yaml",
+                "configs/runs/c5.yaml", "configs/runs/c3.yaml",
+                "configs/profiles/amax.yaml"]
+
+    for name in required:
+        assert (REPO_ROOT / name).exists(), f"{name} is missing from the tree"
+
+    if not (REPO_ROOT / ".git").exists():
+        return                                   # an exported tree has nothing to check
+    tracked = subprocess.run(["git", "ls-files", "configs/"], cwd=REPO_ROOT,
+                             capture_output=True, text=True).stdout.split()
+    for name in required:
+        assert name in tracked, f"{name} exists but is not under version control"
