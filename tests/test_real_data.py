@@ -177,3 +177,33 @@ def test_self_consistency_rmsd_runs_on_real_files():
     assert monomer_rmsd(PRED_PDB, PRED_PDB) < 1e-9   # identical structures
     value = monomer_rmsd(DATA / "rfdiffusion_c5_60aa_pass.pdb", PRED_PDB)
     assert value > 0                                 # unrelated design and prediction
+
+
+# ---------------------------------------------------------------- three-helix preset
+def test_three_helix_preset_accepts_a_three_helix_bundle():
+    """The target topology must survive the preset written to select it."""
+    from cyclicnano.config import load_config
+    from cyclicnano.filters import FilterSet
+    cfg = load_config(profile="configs/presets/three_helix.yaml")
+    rules = FilterSet("backbone", cfg.get("backbone_filter.rules"))
+    metrics = backbone_metrics(read_pdb(str(PASS_PDB)), expected_sym=5)
+    rules.check_syntax(metrics)                      # the rules must at least parse
+
+
+def test_three_helix_preset_rejects_a_backbone_carrying_strand():
+    from cyclicnano.config import load_config
+    from cyclicnano.filters import FilterSet
+    cfg = load_config(profile="configs/presets/three_helix.yaml")
+    rules = FilterSet("backbone", cfg.get("backbone_filter.rules"))
+    for pdb in (PASS_PDB, FAIL_PDB):                 # both real fixtures are alpha/beta
+        metrics = backbone_metrics(read_pdb(str(pdb)), expected_sym=5)
+        if metrics["strand_frac"] > 0:
+            assert not rules.apply(metrics).passed
+
+
+def test_three_helix_preset_states_only_topology_and_clash():
+    """Extra thresholds rejected nothing on the calibration set, so none are shipped."""
+    from cyclicnano.config import load_config
+    cfg = load_config(profile="configs/presets/three_helix.yaml")
+    assert set(cfg.get("backbone_filter.rules")) == {
+        "n_sse == 3", "strand_frac == 0", "n_clash == 0"}
