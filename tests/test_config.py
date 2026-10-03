@@ -143,6 +143,13 @@ def test_contig_length_follows_the_symmetry_of_each_variant():
     assert load_config(["configs/runs/base.yaml", "configs/runs/c3.yaml"]).total_length == 180
 
 
+def test_contig_total_is_divisible_by_the_symmetry_order():
+    """RFdiffusion rejects a symmetric contig that does not divide evenly."""
+    for variant, order in (("c5", 5), ("c3", 3)):
+        cfg = load_config(["configs/runs/base.yaml", f"configs/runs/{variant}.yaml"])
+        assert cfg.total_length % order == 0, (variant, cfg.total_length)
+
+
 def test_a_single_config_path_still_works():
     """The list form must not break callers that pass one file."""
     assert load_config("configs/runs/c3.yaml").symmetry == "C3"

@@ -14,6 +14,12 @@ run:
   seed: 1
 
 target:
+  # Measured, not assumed. 75 was tried on the hypothesis that 60 is too tight for
+  # three segments of about 17 residues plus loops. It is not what happens: the extra
+  # residues bought more segments rather than longer ones. Across 100 backbones each,
+  # n_sse = 3 fell from 10 to 1 and n_sse = 2 from 19 to 1, while n_sse = 6 rose from
+  # 4 to 25. Yield fell with it, C5 from 7 of 50 delivered to 4. Do not raise this
+  # without re-measuring the secondary-structure distribution.
   monomer_length: 60          # residues per chain
   n_backbones: 50
 
