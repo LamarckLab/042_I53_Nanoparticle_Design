@@ -48,6 +48,13 @@ class Runner:
         # PCI_BUS_ID first: without it CUDA reorders devices by capability and
         # CUDA_VISIBLE_DEVICES would select a different card than the one intended.
         env["CUDA_DEVICE_ORDER"] = self.cuda_device_order
+
+        # A batch run must not depend on a display. colabfold_batch draws its pLDDT
+        # and PAE plots with matplotlib, which picks an X11 backend when DISPLAY is
+        # inherited from an SSH session with X forwarding. Logging out then kills the
+        # X connection and takes the running job down with it, mid-stage.
+        env["MPLBACKEND"] = "Agg"
+        env.pop("DISPLAY", None)
         if self.gpus:
             env["CUDA_VISIBLE_DEVICES"] = ",".join(str(g) for g in self.gpus)
         else:

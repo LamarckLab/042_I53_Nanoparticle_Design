@@ -563,3 +563,22 @@ def test_rfdiffusion_batches_continue_each_others_numbering():
 def test_rfdiffusion_startnum_can_be_pinned_in_config():
     cfg = _rfd_cfg("generate.design_startnum=20")
     assert "inference.design_startnum=20" in build_command(cfg, Path("/out/design"), 10, start=0)
+
+
+def test_runner_forces_a_headless_plotting_backend():
+    """colabfold plots with matplotlib; an inherited DISPLAY makes the job die on logout."""
+    import os
+    from cyclicnano.runner import Runner
+    os.environ["DISPLAY"] = "localhost:10.0"
+    try:
+        env = Runner(kind="local").env_vars("colabfold")
+        assert env["MPLBACKEND"] == "Agg"
+        assert "DISPLAY" not in env
+    finally:
+        os.environ.pop("DISPLAY", None)
+
+
+def test_headless_backend_applies_to_every_tool():
+    from cyclicnano.runner import Runner
+    for tool in ("rfdiffusion", "proteinmpnn", "colabfold"):
+        assert Runner(kind="local").env_vars(tool)["MPLBACKEND"] == "Agg"
